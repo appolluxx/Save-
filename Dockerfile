@@ -2,14 +2,15 @@
 # SaveRaks Production Multi-Stage Dockerfile for Railway & Cloud Deployment
 # =============================================================================
 
-FROM node:20-bookworm-slim AS base
+# Use Node 24 (LTS/current with built-in node:sqlite required by pnpm 11)
+FROM node:24-bookworm-slim AS base
 WORKDIR /app
 
-# Install system dependencies needed for Prisma engines, Sharp, and OpenSSL
-RUN apt-get update && apt-get install -y openssl ca-certificates python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Install system dependencies needed for Prisma engines & OpenSSL
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
-RUN npm install -g pnpm@10
+# Install pnpm matching package.json version
+RUN npm install -g pnpm@11.25.0
 
 # ---- Dependencies Stage ----
 FROM base AS dependencies
