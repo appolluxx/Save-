@@ -1,0 +1,14 @@
+{
+  "name": "@saveraks/e2e",
+  "version": "2.0.0",
+  "description": "SaveRaks End-to-End Tests (Playwright)",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/**/*.test.js",
+    "test:e2e": "playwright test",
+    "build": "node -e \"console.log('@saveraks/e2e: Ready')\""
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1"
+  }
+}

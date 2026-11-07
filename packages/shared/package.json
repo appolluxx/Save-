@@ -1,0 +1,19 @@
+{
+  "name": "@saveraks/shared",
+  "version": "2.0.0",
+  "description": "Shared domain models, constants, and validation schemas for SaveRaks",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./constants": "./src/constants.js",
+    "./schemas": "./src/schemas.js"
+  },
+  "scripts": {
+    "test": "node --test test/**/*.test.js",
+    "build": "node -e \"console.log('@saveraks/shared: Pure ESM package verified')\""
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  }
+}

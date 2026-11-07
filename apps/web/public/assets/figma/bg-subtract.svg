@@ -1,0 +1,21 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="402" height="729" viewBox="0 0 402 729" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Subtract" filter="url(#filter0_i_0_4)">
+<path d="M402 33.2812C398.435 32.8742 394.817 32.7914 391.19 33.0537C381.726 13.4918 361.689 0 338.5 0C313.337 0 291.884 15.8875 283.626 38.1787C270.889 41.7612 259.914 49.5487 252.29 59.9473C248.591 58.6856 244.626 58 240.5 58C223.894 58 209.881 69.0896 205.456 84.2666C201.77 83.4379 197.936 83 194 83C188.53 83 183.257 83.8451 178.305 85.4111C169.965 74.5232 157.421 67.0262 143.096 65.3535C135.216 40.7845 112.186 23 85 23C59.0443 23 36.875 39.211 28.0645 62.0605C17.4039 62.599 7.67128 66.6535 0 73.0859L0 729H402V33.2812Z" fill="url(#paint0_linear_0_4)"/>
+</g>
+<defs>
+<filter id="filter0_i_0_4" x="0" y="0" width="402" height="733.6" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="7"/>
+<feGaussianBlur stdDeviation="2.3"/>
+<feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0.436845 0 0 0 0 0.567308 0 0 0 0 0.00818232 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="shape" result="effect1_innerShadow_0_4"/>
+</filter>
+<linearGradient id="paint0_linear_0_4" x1="201" y1="0" x2="201" y2="729" gradientUnits="userSpaceOnUse">
+<stop stop-color="#EAF364"/>
+<stop offset="0.629854" stop-color="#A3D10E"/>
+</linearGradient>
+</defs>
+</svg>

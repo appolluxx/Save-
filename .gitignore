@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Reference directory (Strictly reference-only, never committed)
+Old _vertion/
+Old\ _vertion/
+
+# Environment files and credentials
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+!.env.example
+
+# Production builds
+dist/
+build/
+out/
+.turbo/
+
+# Logs and runtime dumps
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.dump
+
+# Test coverage and reports
+coverage/
+test-results/
+playwright-report/
+blob-report/
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local uploads & temporary caches
+uploads/
+tmp/
+.temp/
+
+# Local-only exports, backups, and scratch data
+.superpowers/
+assets_backup/
+figma_full_export.json
+figma_overview.json
+saveraks-old-ui/
+apps/web/NUL

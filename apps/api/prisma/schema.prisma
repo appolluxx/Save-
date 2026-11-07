@@ -1,0 +1,315 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  STUDENT
+  STAFF
+  ADMIN
+}
+
+enum ActionType {
+  RECYCLE_PET
+  RECYCLE_CAN
+  RECYCLE_PAPER
+  REUSE_CONTAINER
+  PLANT_TREE
+  COMMUTE_PUBLIC
+  COMMUTE_WALK
+  COMMUTE_BICYCLE
+}
+
+enum ActionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TransactionType {
+  ACTION_REWARD
+  REDEMPTION
+  ADMIN_ADJUSTMENT
+  BADGE_BONUS
+}
+
+enum RedemptionStatus {
+  PENDING
+  CLAIMED
+  CANCELLED
+}
+
+enum PinType {
+  FULL_BIN
+  HAZARD
+  RECYCLING_STATION
+  COMPOST_SITE
+  MAINTENANCE
+}
+
+enum PinStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+// ---------------------------------------------------------------------------
+// Student Master Roster (Surasakmontree School)
+// ---------------------------------------------------------------------------
+
+model StudentsMaster {
+  studentId    String    @id @map("student_id")
+  prefix       String?
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  gradeLevel   String    @map("grade_level") // e.g. "ม.4"
+  classroom    String                        // e.g. "4/2"
+  isRegistered Boolean   @default(false) @map("is_registered")
+  registeredAt DateTime? @map("registered_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user User?
+
+  @@index([gradeLevel, classroom])
+  @@map("students_master")
+}
+
+// ---------------------------------------------------------------------------
+// Core User Identity & Profile
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(uuid())
+  studentId     String?   @unique @map("student_id")
+  email         String?   @unique
+  phone         String?   @unique
+  passwordHash  String?   @map("password_hash")
+  googleId      String?   @unique @map("google_id")
+  displayName   String    @map("display_name")
+  avatarUrl     String?   @map("avatar_url")
+  role          Role      @default(STUDENT)
+  points        Int       @default(0)
+  totalCo2Saved Float     @default(0) @map("total_co2_saved")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  studentMaster     StudentsMaster?    @relation(fields: [studentId], references: [studentId])
+  actions           EcoAction[]        @relation("UserActions")
+  reviewedActions   EcoAction[]        @relation("ReviewedActions")
+  pointTransactions PointTransaction[]
+  redemptions       Redemption[]
+  badges            UserBadge[]
+  reportedPins      MapPin[]           @relation("ReportedPins")
+  resolvedPins      MapPin[]           @relation("ResolvedPins")
+  auditActions      AuditLog[]         @relation("ActorAuditLogs")
+
+  @@index([role])
+  @@index([points(sort: Desc)])
+  @@index([totalCo2Saved(sort: Desc)])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Environmental Activities & Submissions
+// ---------------------------------------------------------------------------
+
+model EcoAction {
+  id                 String       @id @default(uuid())
+  userId             String       @map("user_id")
+  type               ActionType
+  status             ActionStatus @default(PENDING)
+  pointsAwarded      Int          @default(0) @map("points_awarded")
+  co2SavedKg         Float        @default(0) @map("co2_saved_kg")
+
+  // Persistent Object Storage Keys & URLs
+  imageObjectKey     String       @map("image_object_key")
+  thumbnailObjectKey String?      @map("thumbnail_object_key")
+  imageUrl           String       @map("image_url")
+  thumbnailUrl       String?      @map("thumbnail_url")
+
+  // Perceptual Hashes (64-bit Hex Strings, 16 chars) & 192-bin Color Histogram
+  pHash              String       @map("p_hash")
+  dHash              String       @map("d_hash")
+  aHash              String       @map("a_hash")
+  colorHistogram     Float[]      @map("color_histogram")
+  similarityScore    Float        @default(0) @map("similarity_score")
+  suspiciousReason   String?      @map("suspicious_reason")
+
+  // AI Verification Output
+  aiVerified         Boolean      @default(false) @map("ai_verified")
+  aiConfidence       Float        @default(0) @map("ai_confidence")
+  aiSummaryThai      String?      @map("ai_summary_thai")
+  aiDetectedObjects  String[]     @map("ai_detected_objects")
+
+  // Geolocation & Commute Time Window Lock
+  latitude           Float?
+  longitude          Float?
+  commuteWindowKey   String?      @map("commute_window_key")
+
+  // Staff Review & Audit
+  reviewedBy         String?      @map("reviewed_by")
+  reviewedAt         DateTime?    @map("reviewed_at")
+  rejectReason       String?      @map("reject_reason")
+
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  user     User  @relation("UserActions", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("ReviewedActions", fields: [reviewedBy], references: [id])
+
+  // Unique constraint ensures max 1 commute claim per user per window
+  @@unique([userId, commuteWindowKey])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([dHash])
+  @@index([pHash])
+  @@map("eco_actions")
+}
+
+// ---------------------------------------------------------------------------
+// Authoritative Point Ledger (Append-Only)
+// ---------------------------------------------------------------------------
+
+model PointTransaction {
+  id           String          @id @default(uuid())
+  userId       String          @map("user_id")
+  amount       Int             // Positive for credits, negative for debits
+  balanceAfter Int             @map("balance_after")
+  type         TransactionType
+  referenceId  String?         @map("reference_id")
+  description  String
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([type])
+  @@map("point_transactions")
+}
+
+// ---------------------------------------------------------------------------
+// Rewards Catalog & Atomic Redemptions
+// ---------------------------------------------------------------------------
+
+model RewardItem {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  cost        Int
+  stock       Int      @default(0)
+  imageUrl    String?  @map("image_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  redemptions Redemption[]
+
+  @@map("reward_items")
+}
+
+model Redemption {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  rewardItemId   String           @map("reward_item_id")
+  costAtPurchase Int              @map("cost_at_purchase")
+  redemptionCode String           @unique @map("redemption_code")
+  status         RedemptionStatus @default(PENDING)
+  claimedAt      DateTime?        @map("claimed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  rewardItem RewardItem @relation(fields: [rewardItemId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("redemptions")
+}
+
+// ---------------------------------------------------------------------------
+// Gamification Badges
+// ---------------------------------------------------------------------------
+
+model Badge {
+  id               String   @id @default(uuid())
+  code             String   @unique
+  name             String
+  description      String
+  icon             String
+  triggerType      String   @map("trigger_type")
+  triggerThreshold Int      @map("trigger_threshold")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  users UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  userId    String   @map("user_id")
+  badgeId   String   @map("badge_id")
+  awardedAt DateTime @default(now()) @map("awarded_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, badgeId])
+  @@map("user_badges")
+}
+
+// ---------------------------------------------------------------------------
+// School Map & Collection Pins
+// ---------------------------------------------------------------------------
+
+model MapPin {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  type        PinType
+  status      PinStatus @default(OPEN)
+  description String
+  latitude    Float
+  longitude   Float
+  imageUrl    String?   @map("image_url")
+  resolvedBy  String?   @map("resolved_by")
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  reporter User  @relation("ReportedPins", fields: [userId], references: [id], onDelete: Cascade)
+  resolver User? @relation("ResolvedPins", fields: [resolvedBy], references: [id])
+
+  @@index([status])
+  @@index([type])
+  @@map("map_pins")
+}
+
+// ---------------------------------------------------------------------------
+// Sensitive Administrative Audit Logging
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String   @map("actor_id")
+  action     String
+  targetType String   @map("target_type")
+  targetId   String   @map("target_id")
+  payload    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([action])
+  @@map("audit_logs")
+}
