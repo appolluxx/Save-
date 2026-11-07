@@ -15,10 +15,16 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { env } from './config/env.js';
 import { apiRouter } from './routes/index.js';
 import { errorHandler, AppError } from './middlewares/error.middleware.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const app = express();
 
@@ -26,6 +32,7 @@ export const app = express();
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: false,
   })
 );
 
@@ -124,10 +131,23 @@ if (env.NODE_ENV !== 'test') {
 // 5. Mount API Routes
 app.use('/api', apiRouter);
 
-// 6. Handle 404 Route Not Found
+// 6. Serve Frontend Static Assets in Production (if web/dist exists)
+const clientDistPath = path.resolve(__dirname, '../../web/dist');
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  // Client-side SPA fallback for non-API routes
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
+// 7. Handle 404 Route Not Found
 app.use((req, res, next) => {
   next(new AppError(404, `Endpoint not found: ${req.method} ${req.originalUrl}`, 'ROUTE_NOT_FOUND'));
 });
 
-// 7. Centralized Error Handler
+// 8. Centralized Error Handler
 app.use(errorHandler);

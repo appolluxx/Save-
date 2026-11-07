@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "pnpm", "openssl"]
+
+[phases.install]
+cmds = ["pnpm install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm -r build"]
+
+[start]
+cmd = "sh -c 'cd apps/api && (npx prisma migrate deploy || echo \"Migration skipped\") && cd ../.. && node apps/api/src/server.js'"

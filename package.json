@@ -9,12 +9,16 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "pnpm -r test",
-    "test:shared": "pnpm --filter @saveraks/shared test",
-    "test:api": "pnpm --filter @saveraks/api test",
+    "start": "node apps/api/src/server.js",
     "build": "pnpm -r build",
     "build:shared": "pnpm --filter @saveraks/shared build",
-    "build:api": "pnpm --filter @saveraks/api build"
+    "build:api": "pnpm --filter @saveraks/api build",
+    "build:web": "pnpm --filter @saveraks/web build",
+    "prisma:migrate": "cd apps/api && npx prisma migrate deploy",
+    "prisma:seed": "cd apps/api && node prisma/seed.js",
+    "test": "pnpm -r test",
+    "test:shared": "pnpm --filter @saveraks/shared test",
+    "test:api": "pnpm --filter @saveraks/api test"
   },
   "devDependencies": {
     "@saveraks/shared": "workspace:*"
