@@ -67,10 +67,10 @@ const envSchema = z.object({
     .min(16, 'STAFF_INVITE_SECRET must be at least 16 characters long')
     .default('surasak_staff_secret_2026'),
   
-  // CORS Security
+  // CORS Security (Accepts wildcard * or comma-separated domains)
   CORS_ALLOWED_ORIGINS: z
     .string()
-    .default('http://localhost:5173,http://localhost:4000'),
+    .default('*'),
   
   // Storage Provider
   STORAGE_PROVIDER: z.enum(['cloudinary', 's3', 'mock']).default('mock'),
