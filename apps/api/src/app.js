@@ -40,15 +40,26 @@ app.use(
 const rawOrigins = env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim());
 
 export function isAllowedOrigin(origin, allowedOrigins = rawOrigins, nodeEnv = env.NODE_ENV) {
-  // Allow requests with no origin (like mobile apps, server-to-server, curl)
+  // Allow requests with no origin (like mobile apps, server-to-server, curl, direct browser GET)
   if (!origin || nodeEnv !== 'production') return true;
+  
+  // Auto-allow any railway.app subdomain or localhost
+  try {
+    const parsed = new URL(origin);
+    if (parsed.hostname.endsWith('.railway.app') || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      return true;
+    }
+  } catch {
+    // Ignore malformed origin
+  }
+
   return allowedOrigins.some((allowed) => {
     if (!allowed) return false;
-    if (allowed === origin) return true;
+    if (allowed === '*' || allowed === origin) return true;
     if (`https://${allowed}` === origin || `http://${allowed}` === origin) return true;
     try {
       const parsed = new URL(origin);
-      if (allowed === parsed.host || allowed === parsed.origin) return true;
+      if (allowed === parsed.host || allowed === parsed.origin || allowed === parsed.hostname) return true;
     } catch {
       // Ignore malformed origin
     }
