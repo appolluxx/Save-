@@ -28,6 +28,9 @@ const __dirname = path.dirname(__filename);
 
 export const app = express();
 
+// Trust Railway and Cloud Reverse Proxies for accurate IP & rate-limiting
+app.set('trust proxy', 1);
+
 // 1. Security Headers via Helmet
 app.use(
   helmet({
