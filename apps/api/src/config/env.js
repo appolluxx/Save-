@@ -20,6 +20,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config(); // Fallback to process.cwd() .env
 
+// Provide fallback for DATABASE_URL if omitted
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:5432/saveraks?schema=public';
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('\n=============================================================');
+    console.warn('⚠️ WARNING: DATABASE_URL is not set in Railway Variables!');
+    console.warn('👉 The server is starting with a fallback URL so your app stays online,');
+    console.warn('   but to enable login, registrations, and data persistence:');
+    console.warn('   1. In Railway, click "+ New" -> "Database" -> "Add PostgreSQL"');
+    console.warn('   2. In your service Variables tab, add:');
+    console.warn('      DATABASE_URL = ${{Postgres.DATABASE_URL}}');
+    console.warn('=============================================================\n');
+  }
+}
+
 // Provide auto-generated safe fallbacks for JWT and Staff secrets if omitted
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
