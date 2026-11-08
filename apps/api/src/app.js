@@ -31,6 +31,22 @@ export const app = express();
 // Trust Railway and Cloud Reverse Proxies for accurate IP & rate-limiting
 app.set('trust proxy', 1);
 
+// =============================================================================
+// 0. Static Frontend Assets (Served FIRST before any CORS, Auth, or Rate Limiter)
+// =============================================================================
+const clientDistPath = path.resolve(__dirname, '../../web/dist');
+if (fs.existsSync(clientDistPath)) {
+  // Directly serve /assets with immutable cache headers and no restrictions
+  app.use('/assets', express.static(path.join(clientDistPath, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+  }));
+  // Serve other root static files like favicon, logo, manifest
+  app.use(express.static(clientDistPath, {
+    index: false,
+  }));
+}
+
 // 1. Security Headers via Helmet
 app.use(
   helmet({
@@ -145,11 +161,8 @@ if (env.NODE_ENV !== 'test') {
 // 5. Mount API Routes
 app.use('/api', apiRouter);
 
-// 6. Serve Frontend Static Assets in Production (if web/dist exists)
-const clientDistPath = path.resolve(__dirname, '../../web/dist');
+// 6. SPA Routing Fallback (for non-API GET requests)
 if (fs.existsSync(clientDistPath)) {
-  app.use(express.static(clientDistPath));
-  // Client-side SPA fallback for non-API routes
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) {
       return next();
@@ -158,7 +171,7 @@ if (fs.existsSync(clientDistPath)) {
   });
 }
 
-// 7. Handle 404 Route Not Found
+// 7. Handle 404 Route Not Found for unhandled /api requests
 app.use((req, res, next) => {
   next(new AppError(404, `Endpoint not found: ${req.method} ${req.originalUrl}`, 'ROUTE_NOT_FOUND'));
 });
