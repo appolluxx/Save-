@@ -35,13 +35,22 @@ app.set('trust proxy', 1);
 // 0. Static Frontend Assets (Served FIRST before any CORS, Auth, or Rate Limiter)
 // =============================================================================
 const clientDistPath = path.resolve(__dirname, '../../web/dist');
+console.log(`[SaveRaks Static] clientDistPath: ${clientDistPath} (exists: ${fs.existsSync(clientDistPath)})`);
+
+// Pre-header: allow any origin for static files
+app.use((req, res, next) => {
+  if (req.path.startsWith('/assets') || req.path === '/logo.svg' || req.path === '/favicon.ico') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  next();
+});
+
 if (fs.existsSync(clientDistPath)) {
-  // Directly serve /assets with immutable cache headers and no restrictions
   app.use('/assets', express.static(path.join(clientDistPath, 'assets'), {
     maxAge: '1y',
     immutable: true,
+    fallthrough: false,
   }));
-  // Serve other root static files like favicon, logo, manifest
   app.use(express.static(clientDistPath, {
     index: false,
   }));
