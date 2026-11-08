@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Eye, EyeOff, Loader2, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../api/client.js';
 import { BrandLogo } from '../components/BrandLogo.jsx';
@@ -20,12 +20,14 @@ export function LoginPage() {
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
 
   useEffect(() => setIsRegister(searchParams.get('mode') === 'register'), [searchParams]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    setInfoMessage('');
     if (isRegister && !agreedTerms) {
       setError('กรุณายืนยันว่าได้อ่านข้อกำหนดและนโยบายความเป็นส่วนตัว');
       return;
@@ -36,9 +38,12 @@ export function LoginPage() {
         const user = await login(identifier.trim(), password);
         navigate(user.role === 'STAFF' || user.role === 'ADMIN' ? '/admin' : '/');
       } else if (role === 'student') {
-        await api.post('/api/auth/verify-student', {
+        const verifyRes = await api.post('/api/auth/verify-student', {
           studentId: identifier.trim(),
         });
+        if (verifyRes.data?.notice) {
+          setInfoMessage(verifyRes.data.notice);
+        }
         const user = await registerStudent({
           studentId: identifier.trim(),
           displayName: displayName.trim(),
@@ -101,6 +106,15 @@ export function LoginPage() {
               {error || connectionError}
             </div>
           )}
+          {infoMessage && (
+            <div
+              role="status"
+              className="flex items-start gap-2 rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm font-medium text-blue-800"
+            >
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+              <span>{infoMessage}</span>
+            </div>
+          )}
           {isRegister && (
             <Field
               label="ชื่อและนามสกุล"
@@ -111,29 +125,36 @@ export function LoginPage() {
               autoComplete="name"
             />
           )}
-          <Field
-            label={
-              role === 'student'
-                ? isRegister
-                  ? 'เลขประจำตัวนักเรียน 5 หลัก'
-                  : 'เลขประจำตัว / อีเมล'
-                : 'อีเมลเจ้าหน้าที่'
-            }
-            value={identifier}
-            onChange={setIdentifier}
-            placeholder={
-              role === 'student'
-                ? isRegister
-                  ? 'เช่น 12345'
-                  : 'เลขประจำตัวหรืออีเมล'
-                : 'name@school.ac.th'
-            }
-            required
-            autoComplete={role === 'student' && !isRegister ? 'username' : 'email'}
-            type={role === 'staff' ? 'email' : 'text'}
-            maxLength={role === 'student' && isRegister ? 5 : undefined}
-            inputMode={role === 'student' && isRegister ? 'numeric' : undefined}
-          />
+          <div>
+            <Field
+              label={
+                role === 'student'
+                  ? isRegister
+                    ? 'เลขประจำตัว 5 หลัก'
+                    : 'เลขประจำตัว / อีเมล'
+                  : 'อีเมลเจ้าหน้าที่'
+              }
+              value={identifier}
+              onChange={setIdentifier}
+              placeholder={
+                role === 'student'
+                  ? isRegister
+                    ? 'เช่น 53580 หรือ 12345'
+                    : 'เลขประจำตัวหรืออีเมล'
+                  : 'name@school.ac.th'
+              }
+              required
+              autoComplete={role === 'student' && !isRegister ? 'username' : 'email'}
+              type={role === 'staff' ? 'email' : 'text'}
+              maxLength={role === 'student' && isRegister ? 5 : undefined}
+              inputMode={role === 'student' && isRegister ? 'numeric' : undefined}
+            />
+            {isRegister && role === 'student' && (
+              <p className="mt-1.5 text-xs text-gray-500">
+                💡 สำหรับนักเรียนสุรศักดิ์มนตรี (หากไม่พบในระบบทะเบียน จะเปิดบัญชีเป็น <strong>บุคคลทั่วไป</strong> ให้อัตโนมัติ)
+              </p>
+            )}
+          </div>
           {isRegister && role === 'student' && (
             <Field
               label="อีเมล (ไม่บังคับ)"

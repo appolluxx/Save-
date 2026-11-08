@@ -49,5 +49,5 @@ COPY --from=builder /app /app
 
 EXPOSE 4000
 
-# Entrypoint: runs prisma migrations on DB, then boots Express server
-CMD ["sh", "-c", "cd apps/api && (npx prisma migrate deploy || echo '⚠️ Database migration skipped or pending connection') && cd ../.. && node apps/api/src/server.js"]
+# Entrypoint: runs prisma migrations on DB, seeds baseline data, then boots Express server
+CMD ["sh", "-c", "cd apps/api && (npx prisma migrate deploy || echo '⚠️ Database migration skipped or pending connection') && (node prisma/seed.js || echo '⚠️ Seed skipped') && cd ../.. && node apps/api/src/server.js"]

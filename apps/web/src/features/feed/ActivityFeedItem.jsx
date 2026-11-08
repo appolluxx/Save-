@@ -133,9 +133,11 @@ export function ActivityFeedItem({ action }) {
   const imageUrl = action.thumbnailUrl || action.imageUrl;
   const gradeLevel = String(action.user?.gradeLevel || '');
   const className =
-    action.user?.gradeLevel && action.user?.classroom
-      ? `${gradeLevel.startsWith('ม.') ? gradeLevel : `ม.${gradeLevel}`}/${action.user.classroom}`
-      : 'ชุมชนโรงเรียน';
+    action.user?.gradeLevel === 'บุคคลทั่วไป'
+      ? 'บุคคลทั่วไป'
+      : action.user?.gradeLevel && action.user?.classroom
+        ? `${gradeLevel.startsWith('ม.') ? gradeLevel : `ม.${gradeLevel}`}/${action.user.classroom}`
+        : 'ชุมชนโรงเรียน';
 
   return (
     <article className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3.5 px-4 py-4 sm:grid-cols-[4.75rem_minmax(0,1fr)] sm:gap-4 sm:px-5">

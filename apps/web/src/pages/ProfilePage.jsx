@@ -128,11 +128,13 @@ export function ProfilePage() {
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <div className="rounded-2xl bg-white/[.08] p-3">
-                <p className="text-[10px] font-bold text-white/55">ระดับชั้น / ห้อง</p>
+                <p className="text-[10px] font-bold text-white/55">ระดับชั้น / สถานะ</p>
                 <p className="mt-1 text-sm font-extrabold">
-                  {user?.gradeLevel
-                    ? `ม.${user.gradeLevel}/${user.classroom || '—'}`
-                    : 'ไม่มีข้อมูล'}
+                  {user?.gradeLevel === 'บุคคลทั่วไป'
+                    ? 'บุคคลทั่วไป'
+                    : user?.gradeLevel
+                      ? `ม.${user.gradeLevel}/${user.classroom || '—'}`
+                      : 'ไม่มีข้อมูล'}
                 </p>
               </div>
               <div className="rounded-2xl bg-white/[.08] p-3">

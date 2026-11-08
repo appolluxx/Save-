@@ -12,10 +12,13 @@
 import { app } from './app.js';
 import { env } from './config/env.js';
 import { prisma } from './config/prisma.js';
+import { autoSeedIfEmpty } from './services/seed.service.js';
 
-const server = app.listen(env.PORT, () => {
+const server = app.listen(env.PORT, async () => {
   console.log(`🚀 SaveRaks API server running in [${env.NODE_ENV}] mode on port ${env.PORT}`);
   console.log(`🔗 Health check available at: http://localhost:${env.PORT}/api/health`);
+  // Automatically seed master roster, badges, and rewards if fresh database
+  await autoSeedIfEmpty();
 });
 
 // Graceful Shutdown Protocol

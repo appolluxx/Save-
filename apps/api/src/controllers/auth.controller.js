@@ -31,6 +31,8 @@ import {
 
 /**
  * Checks if a student ID exists in the master roster and is available for registration.
+ * If the student roster is unseeded or the student ID is not found in the roster,
+ * it automatically provisions registration as "บุคคลทั่วไป" (General Public).
  * POST /api/auth/verify-student
  */
 export async function verifyStudent(req, res, next) {
@@ -42,17 +44,38 @@ export async function verifyStudent(req, res, next) {
     });
 
     if (!master) {
-      throw new AppError(404, 'Student ID not found in Surasakmontree School roster', 'STUDENT_NOT_FOUND');
+      // Check if the school roster is populated
+      const totalRosterCount = await prisma.studentsMaster.count();
+      const isRosterEmpty = totalRosterCount === 0;
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          valid: true,
+          isGeneralPublic: true,
+          isRosterEmpty,
+          studentId,
+          prefix: 'คุณ',
+          firstName: 'บุคคลทั่วไป',
+          lastName: '(ทั่วไป)',
+          gradeLevel: 'บุคคลทั่วไป',
+          classroom: 'ทั่วไป',
+          notice: isRosterEmpty
+            ? 'ยังไม่มีฐานข้อมูลทะเบียนนักเรียนในระบบ — ระบบจะลงทะเบียนบัญชีของคุณในฐานะ: บุคคลทั่วไป'
+            : 'ไม่พบรหัสนี้ในฐานข้อมูลนักเรียนโรงเรียนสุรศักดิ์มนตรี — ระบบจะเปิดใช้งานในฐานะ: บุคคลทั่วไป',
+        },
+      });
     }
 
     if (master.isRegistered) {
-      throw new AppError(409, 'This student ID has already been registered', 'ALREADY_REGISTERED');
+      throw new AppError(409, 'รหัสนักเรียนนี้ถูกลงทะเบียนใช้งานแล้ว หากเป็นบัญชีของคุณกรุณาเข้าสู่ระบบ', 'ALREADY_REGISTERED');
     }
 
     res.status(200).json({
       success: true,
       data: {
         valid: true,
+        isGeneralPublic: master.gradeLevel === 'บุคคลทั่วไป',
         studentId: master.studentId,
         prefix: master.prefix,
         firstName: master.firstName,
@@ -68,6 +91,7 @@ export async function verifyStudent(req, res, next) {
 
 /**
  * Registers a student linked to their master roster ID inside an atomic transaction.
+ * If the student is not in the roster, creates a general public profile.
  * POST /api/auth/register/student
  */
 export async function registerStudent(req, res, next) {
@@ -78,26 +102,36 @@ export async function registerStudent(req, res, next) {
 
     const user = await prisma.$transaction(async (tx) => {
       // 1. Verify student roster record under lock
-      const master = await tx.studentsMaster.findUnique({
+      let master = await tx.studentsMaster.findUnique({
         where: { studentId: data.studentId },
       });
 
       if (!master) {
-        throw new AppError(404, 'Student ID not found in school roster', 'STUDENT_NOT_FOUND');
+        // Auto-provision a roster record for general public
+        master = await tx.studentsMaster.create({
+          data: {
+            studentId: data.studentId,
+            prefix: 'คุณ',
+            firstName: data.displayName,
+            lastName: '(บุคคลทั่วไป)',
+            gradeLevel: 'บุคคลทั่วไป',
+            classroom: 'ทั่วไป',
+            isRegistered: true,
+            registeredAt: new Date(),
+          },
+        });
+      } else if (master.isRegistered) {
+        throw new AppError(409, 'รหัสนักเรียนนี้ถูกลงทะเบียนใช้งานแล้ว', 'ALREADY_REGISTERED');
+      } else {
+        // 2. Mark master record as registered
+        await tx.studentsMaster.update({
+          where: { studentId: data.studentId },
+          data: {
+            isRegistered: true,
+            registeredAt: new Date(),
+          },
+        });
       }
-
-      if (master.isRegistered) {
-        throw new AppError(409, 'This student ID has already been registered', 'ALREADY_REGISTERED');
-      }
-
-      // 2. Mark master record as registered
-      await tx.studentsMaster.update({
-        where: { studentId: data.studentId },
-        data: {
-          isRegistered: true,
-          registeredAt: new Date(),
-        },
-      });
 
       // 3. Create user identity
       const newUser = await tx.user.create({

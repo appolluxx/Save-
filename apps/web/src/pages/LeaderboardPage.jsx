@@ -258,6 +258,7 @@ function initial(name) {
   return [...(name || '?')][0];
 }
 function room(student) {
+  if (student.gradeLevel === 'บุคคลทั่วไป') return 'บุคคลทั่วไป';
   return student.gradeLevel
     ? `ม.${student.gradeLevel}/${student.classroom || '—'}`
     : 'ไม่ระบุชั้นเรียน';
