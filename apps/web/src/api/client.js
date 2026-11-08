@@ -35,7 +35,11 @@ export async function request(endpoint, options = {}) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    const detailMsg = Array.isArray(data?.error?.details) && data.error.details.length > 0
+      ? data.error.details.map((d) => d.message).join(' · ')
+      : null;
     const message =
+      detailMsg ||
       data?.error?.message ||
       (response.status >= 500
         ? 'เซิร์ฟเวอร์ยังไม่พร้อมใช้งาน กรุณาตรวจสอบ API และฐานข้อมูลแล้วลองอีกครั้ง'

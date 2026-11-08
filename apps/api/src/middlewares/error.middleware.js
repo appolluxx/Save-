@@ -52,11 +52,12 @@ export function errorHandler(err, req, res, next) {
       path: e.path.join('.'),
       message: e.message,
     }));
+    const firstMessage = formattedErrors[0]?.message || 'ข้อมูลที่กรอกไม่ถูกต้อง';
     return res.status(400).json({
       success: false,
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'Invalid request data provided',
+        message: firstMessage,
         details: formattedErrors,
       },
     });

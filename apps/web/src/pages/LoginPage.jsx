@@ -47,8 +47,8 @@ export function LoginPage() {
         const user = await registerStudent({
           studentId: identifier.trim(),
           displayName: displayName.trim(),
-          email: email.trim() || undefined,
-          password,
+          email: email.trim() ? email.trim() : undefined,
+          password: password.trim(),
         });
         navigate(user.role === 'STAFF' || user.role === 'ADMIN' ? '/admin' : '/');
       } else {
@@ -192,7 +192,7 @@ export function LoginPage() {
                 autoComplete={isRegister ? 'new-password' : 'current-password'}
                 minLength={isRegister ? 8 : 1}
                 className="w-full rounded-2xl border border-gray-200 bg-brand-canvas px-4 py-3 pr-12 text-sm font-medium outline-none transition focus:border-brand-positive focus:ring-4 focus:ring-brand-primary/20"
-                placeholder={isRegister ? 'อย่างน้อย 8 ตัวอักษร' : 'กรอกรหัสผ่าน'}
+                placeholder={isRegister ? 'รหัสผ่านอย่างน้อย 8 ตัวอักษร' : 'กรอกรหัสผ่าน'}
               />
               <button
                 type="button"

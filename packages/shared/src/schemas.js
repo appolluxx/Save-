@@ -22,17 +22,11 @@ export const STUDENT_ID_REGEX = /^\d{5}$/;
 // Thai phone number pattern (0 followed by 8 or 9 digits: e.g., 0812345678, 021234567)
 export const THAI_PHONE_REGEX = /^0\d{8,9}$/;
 
-// Password complexity: min 8 chars, at least 1 uppercase, 1 lowercase, 1 digit
-export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,100}$/;
-
+// Password complexity: min 8 chars
 export const passwordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters long')
-  .max(100, 'Password cannot exceed 100 characters')
-  .regex(
-    PASSWORD_REGEX,
-    'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-  );
+  .min(8, 'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร')
+  .max(100, 'รหัสผ่านต้องไม่เกิน 100 ตัวอักษร');
 
 // ---------------------------------------------------------------------------
 // 1. Authentication & Registration Schemas
