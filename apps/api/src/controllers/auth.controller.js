@@ -25,6 +25,7 @@ import {
   verifyPassword,
   issueJwtToken,
   setAuthCookie,
+  clearAuthCookie,
   verifyStaffInviteSecret,
   verifyGoogleIdToken,
 } from '../services/auth.service.js';
@@ -433,15 +434,14 @@ export async function getCurrentUser(req, res, next) {
  * Clears authentication cookie.
  * POST /api/auth/logout
  */
-export async function logout(req, res) {
-  res.clearCookie('saveraks_token', {
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
-    path: '/',
-  });
-  res.status(200).json({
-    success: true,
-    message: 'Logged out successfully',
-  });
+export async function logout(req, res, next) {
+  try {
+    clearAuthCookie(res);
+    res.status(200).json({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
 }

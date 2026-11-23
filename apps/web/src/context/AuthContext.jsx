@@ -50,9 +50,13 @@ export function AuthProvider({ children }) {
     acceptSession(await api.post('/api/auth/google', { idToken }));
 
   const logout = async () => {
-    const response = await api.post('/api/auth/logout', {});
-    if (!response?.success) throw new Error('ระบบยังยืนยันการออกจากระบบไม่ได้');
-    setUser(null);
+    try {
+      await api.post('/api/auth/logout', {});
+    } catch {
+      // Even if the network drops or API is unreachable, ensure user state is cleared
+    } finally {
+      setUser(null);
+    }
   };
 
   const isStaffOrAdmin = user?.role === 'STAFF' || user?.role === 'ADMIN';

@@ -101,6 +101,16 @@ describe('Phase 4: API Routes & HTTP Pipeline Integration', () => {
       assert.equal(json.success, false);
       assert.equal(json.error.code, 'UNAUTHORIZED');
     });
+
+    it('should clear authentication cookie and return 200 on logout', async () => {
+      const res = await fetch(`${baseUrl}/api/auth/logout`, { method: 'POST' });
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.equal(json.success, true);
+      assert.equal(json.message, 'Logged out successfully');
+      const setCookie = res.headers.get('set-cookie');
+      assert.ok(setCookie?.includes('saveraks_token='));
+    });
   });
 
   describe('Marketplace Authorization & Anti-Tampering', () => {

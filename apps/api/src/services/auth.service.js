@@ -62,6 +62,18 @@ export function setAuthCookie(res, token) {
   });
 }
 
+/**
+ * Clears secure HTTP-Only authentication cookie.
+ */
+export function clearAuthCookie(res) {
+  res.clearCookie('saveraks_token', {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
+  });
+}
+
 function generateReadableCode(prefix) {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // Excludes confusing characters (0, 1, I, O)
   const bytes = crypto.randomBytes(8);
