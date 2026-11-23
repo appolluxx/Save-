@@ -8,6 +8,7 @@ import {
   Clock3,
   Info,
   LoaderCircle,
+  XCircle,
 } from 'lucide-react';
 import { ACTION_METADATA, ACTION_TYPES, BIN_CATEGORIES } from '@saveraks/shared/constants';
 import { api } from '../api/client.js';

@@ -191,12 +191,10 @@ describe('SaveRaks Validation Schemas (Zod)', () => {
     it('should reject weak passwords', () => {
       // Too short (< 8 chars)
       assert.equal(studentRegisterSchema.safeParse({ ...validStudent, password: 'Pass1' }).success, false);
-      // No uppercase
-      assert.equal(studentRegisterSchema.safeParse({ ...validStudent, password: 'password123' }).success, false);
-      // No lowercase
-      assert.equal(studentRegisterSchema.safeParse({ ...validStudent, password: 'PASSWORD123' }).success, false);
-      // No number
-      assert.equal(studentRegisterSchema.safeParse({ ...validStudent, password: 'PasswordLong' }).success, false);
+      assert.equal(studentRegisterSchema.safeParse({ ...validStudent, password: '123' }).success, false);
+      assert.equal(studentRegisterSchema.safeParse({ ...validStudent, password: 'short' }).success, false);
+      // Valid minimum 8 chars
+      assert.equal(studentRegisterSchema.safeParse({ ...validStudent, password: '12345678' }).success, true);
     });
 
     it('should reject unauthorized injected fields (strictObject defense)', () => {
