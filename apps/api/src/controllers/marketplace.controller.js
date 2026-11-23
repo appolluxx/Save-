@@ -30,6 +30,19 @@ const KRATHONG_MATERIAL_BY_ACTION_TYPE = Object.freeze(
   Object.fromEntries(Object.entries(KRATHONG_ACTION_TYPES).map(([material, type]) => [type, material])),
 );
 
+export function isKrathongMaterialEligible(materialType, approvedCount) {
+  const requiredCount = KRATHONG_EVENT.materials[materialType]?.quantity;
+  return Number.isFinite(Number(approvedCount)) && Number(approvedCount) >= requiredCount;
+}
+
+async function getApprovedKrathongCount(userId, materialType) {
+  const actionType = KRATHONG_ACTION_TYPES[materialType];
+  if (!actionType) return 0;
+  return prisma.ecoAction.count({
+    where: { userId, type: actionType, status: 'APPROVED' },
+  });
+}
+
 function describeKrathongMaterial(materialType) {
   const material = KRATHONG_EVENT.materials[materialType];
   return `${material.label} ${material.quantity} ${material.unit} · ${material.condition}`;
@@ -263,7 +276,35 @@ export async function redeemKrathongEvent(req, res, next) {
     };
 
     const existing = await prisma.eventRedemption.findUnique({ where: redemptionWhere });
-    if (existing) {
+    const requestedCount = await getApprovedKrathongCount(userId, materialType);
+    const canSwitchPendingVoucher = existing?.status === 'PENDING' &&
+      existing.materialType !== materialType &&
+      isKrathongMaterialEligible(materialType, requestedCount);
+    const eligibleMaterialType = canSwitchPendingVoucher
+      ? materialType
+      : existing && existing.status !== 'CANCELLED'
+        ? existing.materialType
+        : materialType;
+    const material = KRATHONG_EVENT.materials[eligibleMaterialType];
+    const approvedCount = eligibleMaterialType === materialType
+      ? requestedCount
+      : await getApprovedKrathongCount(userId, eligibleMaterialType);
+
+    if (!isKrathongMaterialEligible(eligibleMaterialType, approvedCount)) {
+      if (existing?.status === 'PENDING') {
+        await prisma.eventRedemption.updateMany({
+          where: { id: existing.id, status: 'PENDING' },
+          data: { status: 'CANCELLED' },
+        });
+      }
+      throw new AppError(
+        400,
+        `ต้องมีรายการสแกน ${material.label} ที่ได้รับอนุมัติอย่างน้อย ${material.quantity} ชิ้น (ขณะนี้ ${approvedCount} ชิ้น)`,
+        'KRATHONG_REQUIREMENT_NOT_MET',
+      );
+    }
+
+    if (existing && existing.status !== 'CANCELLED' && !canSwitchPendingVoucher) {
       res.status(200).json({
         success: true,
         data: { redemption: mapKrathongRedemption(existing) },
@@ -272,17 +313,38 @@ export async function redeemKrathongEvent(req, res, next) {
       return;
     }
 
-    const actionType = KRATHONG_ACTION_TYPES[materialType];
-    const material = KRATHONG_EVENT.materials[materialType];
-    const approvedCount = await prisma.ecoAction.count({
-      where: { userId, type: actionType, status: 'APPROVED' },
-    });
-    if (approvedCount < material.quantity) {
-      throw new AppError(
-        400,
-        `ต้องมีรายการสแกน ${material.label} ที่ได้รับอนุมัติอย่างน้อย ${material.quantity} ชิ้น (ขณะนี้ ${approvedCount} ชิ้น)`,
-        'KRATHONG_REQUIREMENT_NOT_MET',
-      );
+    if (canSwitchPendingVoucher) {
+      const switchedRedemption = await prisma.eventRedemption.update({
+        where: { id: existing.id },
+        data: {
+          materialType,
+          redemptionCode: generateKrathongVoucherCode(),
+        },
+      });
+      res.status(200).json({
+        success: true,
+        data: { redemption: mapKrathongRedemption(switchedRedemption) },
+        message: 'เงื่อนไขวัสดุครบแล้ว ใช้รหัสแลกกระทงใหม่ได้',
+      });
+      return;
+    }
+
+    if (existing?.status === 'CANCELLED') {
+      const reactivatedRedemption = await prisma.eventRedemption.update({
+        where: { id: existing.id },
+        data: {
+          materialType,
+          redemptionCode: generateKrathongVoucherCode(),
+          status: 'PENDING',
+          claimedAt: null,
+        },
+      });
+      res.status(200).json({
+        success: true,
+        data: { redemption: mapKrathongRedemption(reactivatedRedemption) },
+        message: 'ครบเงื่อนไขแล้ว ใช้รหัสแลกกระทงใหม่ได้',
+      });
+      return;
     }
 
     let redemption;
@@ -301,13 +363,47 @@ export async function redeemKrathongEvent(req, res, next) {
         const concurrentRedemption = await prisma.eventRedemption.findUnique({
           where: redemptionWhere,
         });
-        if (concurrentRedemption) {
+        const concurrentCount = concurrentRedemption
+          ? await getApprovedKrathongCount(userId, concurrentRedemption.materialType)
+          : 0;
+        if (
+          concurrentRedemption &&
+          concurrentRedemption.status !== 'CANCELLED' &&
+          isKrathongMaterialEligible(concurrentRedemption.materialType, concurrentCount)
+        ) {
           res.status(200).json({
             success: true,
             data: { redemption: mapKrathongRedemption(concurrentRedemption) },
             message: 'คุณมีสิทธิ์แลกกระทงแล้ว ใช้รหัสเดิมได้ที่แท็บคูปองของฉัน',
           });
           return;
+        }
+        if (
+          concurrentRedemption?.status === 'CANCELLED' &&
+          isKrathongMaterialEligible(concurrentRedemption.materialType, concurrentCount)
+        ) {
+          const reactivatedRedemption = await prisma.eventRedemption.update({
+            where: { id: concurrentRedemption.id },
+            data: {
+              redemptionCode: generateKrathongVoucherCode(),
+              status: 'PENDING',
+              claimedAt: null,
+            },
+          });
+          res.status(200).json({
+            success: true,
+            data: { redemption: mapKrathongRedemption(reactivatedRedemption) },
+            message: 'ครบเงื่อนไขแล้ว ใช้รหัสแลกกระทงใหม่ได้',
+          });
+          return;
+        }
+        if (concurrentRedemption && !isKrathongMaterialEligible(concurrentRedemption.materialType, concurrentCount)) {
+          const concurrentMaterial = KRATHONG_EVENT.materials[concurrentRedemption.materialType];
+          throw new AppError(
+            400,
+            `ต้องมีรายการสแกน ${concurrentMaterial.label} ที่ได้รับอนุมัติอย่างน้อย ${concurrentMaterial.quantity} ชิ้น (ขณะนี้ ${concurrentCount} ชิ้น)`,
+            'KRATHONG_REQUIREMENT_NOT_MET',
+          );
         }
       }
       throw error;
@@ -362,9 +458,19 @@ export async function getMyRedemptions(req, res, next) {
       isEvent: false,
     }));
 
+    const visibleEventRedemptions = await Promise.all(
+      eventRedemptions.map(async (redemption) => {
+        if (!['PENDING', 'CLAIMED'].includes(redemption.status)) return null;
+        const approvedCount = await getApprovedKrathongCount(req.user.id, redemption.materialType);
+        return isKrathongMaterialEligible(redemption.materialType, approvedCount)
+          ? redemption
+          : null;
+      }),
+    );
+
     res.status(200).json({
       success: true,
-      data: [...rewardVouchers, ...eventRedemptions.map(mapKrathongRedemption)].sort(
+      data: [...rewardVouchers, ...visibleEventRedemptions.filter(Boolean).map(mapKrathongRedemption)].sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
       ),
     });
@@ -407,6 +513,30 @@ export async function claimVoucher(req, res, next) {
           400,
           `Voucher was already claimed on ${eventRedemption.claimedAt}`,
           'ALREADY_CLAIMED',
+        );
+      }
+      if (eventRedemption.status !== 'PENDING') {
+        throw new AppError(
+          400,
+          'Voucher has already been cancelled and cannot be claimed',
+          'ALREADY_CLAIMED',
+        );
+      }
+
+      const approvedCount = await getApprovedKrathongCount(
+        eventRedemption.userId,
+        eventRedemption.materialType,
+      );
+      if (!isKrathongMaterialEligible(eventRedemption.materialType, approvedCount)) {
+        await prisma.eventRedemption.updateMany({
+          where: { id: eventRedemption.id, status: 'PENDING' },
+          data: { status: 'CANCELLED' },
+        });
+        const material = KRATHONG_EVENT.materials[eventRedemption.materialType];
+        throw new AppError(
+          400,
+          `ใช้รหัสไม่ได้ ต้องมีรายการสแกน ${material.label} ที่ได้รับอนุมัติอย่างน้อย ${material.quantity} ชิ้น (ขณะนี้ ${approvedCount} ชิ้น)`,
+          'KRATHONG_REQUIREMENT_NOT_MET',
         );
       }
 

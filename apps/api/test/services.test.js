@@ -243,7 +243,9 @@ describe('Phase 3: Storage, Anti-Cheat & AI Vision Services', () => {
       try {
         const analysis = await analyzeWasteImage(Buffer.from('sample image'));
         assert.equal(requestBody.model, 'qwen/qwen3.8-27b');
-        assert.equal(requestBody.max_completion_tokens, 500);
+        assert.equal(requestBody.reasoning_effort, 'none');
+        assert.equal(requestBody.reasoning_format, 'hidden');
+        assert.equal(requestBody.max_completion_tokens, 180);
         assert.equal(analysis.detectedCategory, 'RECYCLE_PET');
         assert.equal(analysis.recommendedBinColor, 'YELLOW');
       } finally {

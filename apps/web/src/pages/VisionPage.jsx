@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { BIN_CATEGORIES } from '@saveraks/shared/constants';
 import { api } from '../api/client.js';
+import { compressImageForUpload } from '../features/compressImageForUpload.js';
 import { PageHeader } from '../components/PageHeader.jsx';
 
 const sample = '/assets/figma/sample-bottles-vision.jpg';
@@ -67,7 +68,7 @@ export function VisionPage() {
     setAnalysis(null);
     try {
       const body = new FormData();
-      body.append('image', file);
+      body.append('image', await compressImageForUpload(file));
       const response = await api.upload('/api/actions/scan-preview', body);
       if (!response.success || !response.data) throw new Error('ระบบไม่ได้ส่งผลวิเคราะห์กลับมา');
       setAnalysis(response.data);
@@ -136,7 +137,7 @@ export function VisionPage() {
             {loading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-brand-primary/65 text-white backdrop-blur-sm">
                 <RefreshCw className="h-9 w-9 animate-spin text-brand-positive" />
-                <span className="mt-3 text-sm font-extrabold">กำลังวิเคราะห์ภาพ…</span>
+                <span className="mt-3 text-sm font-extrabold">กำลังย่อรูปและวิเคราะห์…</span>
                 <small className="mt-1 text-xs text-white/70">รอผลจากระบบ AI</small>
               </div>
             )}
@@ -165,7 +166,7 @@ export function VisionPage() {
               className="button-secondary justify-center disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ScanLine className="h-4 w-4" />
-              {loading ? 'กำลังวิเคราะห์…' : 'วิเคราะห์ภาพ'}
+              {loading ? 'กำลังย่อรูปและวิเคราะห์…' : 'วิเคราะห์ภาพ'}
             </button>
           </div>
           {!file && (

@@ -68,7 +68,9 @@ export async function analyzeWasteImage(imageBuffer) {
           ],
           response_format: { type: 'json_object' },
           temperature: 0.1,
-          max_completion_tokens: 500,
+          reasoning_effort: 'none',
+          reasoning_format: 'hidden',
+          max_completion_tokens: 180,
         }),
       });
 

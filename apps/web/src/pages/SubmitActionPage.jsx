@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ACTION_METADATA, ACTION_TYPES, BIN_CATEGORIES } from '@saveraks/shared/constants';
 import { api } from '../api/client.js';
+import { compressImageForUpload } from '../features/compressImageForUpload.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 
@@ -70,7 +71,7 @@ export function SubmitActionPage() {
     setLoading(true);
     try {
       const body = new FormData();
-      body.append('image', file);
+      body.append('image', await compressImageForUpload(file));
       const response = await api.upload('/api/actions', body);
       const data = response.data;
       if (!response.success || (!data?.action && !data?.analysis)) {
@@ -210,7 +211,7 @@ export function SubmitActionPage() {
             {loading ? (
               <>
                 <LoaderCircle className="h-4 w-4 animate-spin" />
-                AI กำลังตรวจภาพ…
+                กำลังย่อรูปและวิเคราะห์…
               </>
             ) : (
               <>

@@ -28,9 +28,17 @@ export function ShopPage() {
   const [purchasing, setPurchasing] = useState(false);
   const [redeemingEvent, setRedeemingEvent] = useState(false);
   const [tab, setTab] = useState('catalog');
-  const krathongRedemption = redemptions.find(
+  const savedKrathongRedemption = redemptions.find(
     (redemption) => redemption.eventKey === KRATHONG_EVENT.key,
   );
+  const krathongRedemption = savedKrathongRedemption &&
+    eventProgress?.[savedKrathongRedemption.materialType]?.eligible
+    ? savedKrathongRedemption
+    : null;
+  const visibleRedemptions = redemptions.filter((redemption) => {
+    if (!redemption.isEvent) return true;
+    return eventProgress?.[redemption.materialType]?.eligible === true;
+  });
   const selectedEventInfo = selectedEventMaterial
     ? KRATHONG_EVENT.materials[selectedEventMaterial]
     : null;
@@ -190,7 +198,7 @@ export function ShopPage() {
           aria-pressed={tab === 'vouchers'}
           className={`rounded-xl px-4 py-2 text-xs font-extrabold ${tab === 'vouchers' ? 'bg-brand-primary text-white' : 'text-brand-muted'}`}
         >
-          คูปองของฉัน <span className="ml-1 opacity-70">{redemptions.length}</span>
+          คูปองของฉัน <span className="ml-1 opacity-70">{visibleRedemptions.length}</span>
         </button>
       </div>
 
@@ -284,7 +292,7 @@ export function ShopPage() {
           </div>
           {loading ? (
             <LoadingCards />
-          ) : redemptions.length === 0 ? (
+          ) : visibleRedemptions.length === 0 ? (
             <Empty
               icon={Ticket}
               title="ยังไม่มีคูปอง"
@@ -292,7 +300,7 @@ export function ShopPage() {
             />
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              {redemptions.map((redemption) => (
+              {visibleRedemptions.map((redemption) => (
                 <article
                   key={redemption.id}
                   className="flex gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
