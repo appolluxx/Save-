@@ -144,6 +144,12 @@ export const marketplacePurchaseSchema = z.strictObject({
     .uuid('Reward Item ID must be a valid UUID'),
 });
 
+export const krathongRedemptionSchema = z.strictObject({
+  materialType: z.enum(['PET', 'CAN'], {
+    errorMap: () => ({ message: 'เลือกประเภทขยะ PET หรือ CAN' }),
+  }),
+});
+
 // ---------------------------------------------------------------------------
 // 4. AI Vision Structured Output Schemas
 // ---------------------------------------------------------------------------

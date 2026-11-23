@@ -10,10 +10,40 @@
  * @module controllers/marketplace
  */
 
-import { marketplacePurchaseSchema } from '@saveraks/shared/schemas';
+import { KRATHONG_EVENT } from '@saveraks/shared/constants';
+import {
+  krathongRedemptionSchema,
+  marketplacePurchaseSchema,
+} from '@saveraks/shared/schemas';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../middlewares/error.middleware.js';
-import { generateVoucherCode } from '../services/auth.service.js';
+import {
+  generateKrathongVoucherCode,
+  generateVoucherCode,
+} from '../services/auth.service.js';
+
+function describeKrathongMaterial(materialType) {
+  const material = KRATHONG_EVENT.materials[materialType];
+  return `${material.label} ${material.quantity} ${material.unit} · ${material.condition}`;
+}
+
+function mapKrathongRedemption(redemption) {
+  const materialRequirement = describeKrathongMaterial(redemption.materialType);
+  return {
+    id: redemption.id,
+    eventKey: redemption.eventKey,
+    isEvent: true,
+    materialType: redemption.materialType,
+    materialRequirement,
+    rewardTitle: `สิทธิ์${KRATHONG_EVENT.title}`,
+    rewardDescription: `${materialRequirement} · จำกัด 1 ใบต่อท่าน`,
+    costAtPurchase: 0,
+    redemptionCode: redemption.redemptionCode,
+    status: redemption.status,
+    claimedAt: redemption.claimedAt,
+    createdAt: redemption.createdAt,
+  };
+}
 
 /**
  * Lists all active reward items in catalog.
@@ -165,38 +195,109 @@ export async function purchaseItem(req, res, next) {
 }
 
 /**
- * Returns current user's redemption vouchers.
+ * Creates one persistent, no-points Krathong event voucher per user.
+ * POST /api/marketplace/krathong/redeem
+ */
+export async function redeemKrathongEvent(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { materialType } = krathongRedemptionSchema.parse(req.body);
+    const redemptionWhere = {
+      userId_eventKey: { userId, eventKey: KRATHONG_EVENT.key },
+    };
+
+    const existing = await prisma.eventRedemption.findUnique({ where: redemptionWhere });
+    if (existing) {
+      res.status(200).json({
+        success: true,
+        data: { redemption: mapKrathongRedemption(existing) },
+        message: 'คุณมีสิทธิ์แลกกระทงแล้ว ใช้รหัสเดิมได้ที่แท็บคูปองของฉัน',
+      });
+      return;
+    }
+
+    let redemption;
+    try {
+      redemption = await prisma.eventRedemption.create({
+        data: {
+          userId,
+          eventKey: KRATHONG_EVENT.key,
+          materialType,
+          redemptionCode: generateKrathongVoucherCode(),
+        },
+      });
+    } catch (error) {
+      // The database constraint protects the one-voucher limit if the user taps twice.
+      if (error?.code === 'P2002') {
+        const concurrentRedemption = await prisma.eventRedemption.findUnique({
+          where: redemptionWhere,
+        });
+        if (concurrentRedemption) {
+          res.status(200).json({
+            success: true,
+            data: { redemption: mapKrathongRedemption(concurrentRedemption) },
+            message: 'คุณมีสิทธิ์แลกกระทงแล้ว ใช้รหัสเดิมได้ที่แท็บคูปองของฉัน',
+          });
+          return;
+        }
+      }
+      throw error;
+    }
+
+    res.status(201).json({
+      success: true,
+      data: { redemption: mapKrathongRedemption(redemption) },
+      message: 'สร้างรหัสแลกกระทงสำเร็จ แสดงรหัสนี้ให้เจ้าหน้าที่ตรวจวัสดุ',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Returns current user's marketplace and event redemption vouchers.
  * GET /api/marketplace/redemptions
  */
 export async function getMyRedemptions(req, res, next) {
   try {
-    const redemptions = await prisma.redemption.findMany({
-      where: { userId: req.user.id },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        rewardItem: {
-          select: {
-            title: true,
-            description: true,
-            imageUrl: true,
+    const [redemptions, eventRedemptions] = await Promise.all([
+      prisma.redemption.findMany({
+        where: { userId: req.user.id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          rewardItem: {
+            select: {
+              title: true,
+              description: true,
+              imageUrl: true,
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.eventRedemption.findMany({
+        where: { userId: req.user.id, eventKey: KRATHONG_EVENT.key },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const rewardVouchers = redemptions.map((r) => ({
+      id: r.id,
+      rewardTitle: r.rewardItem.title,
+      rewardDescription: r.rewardItem.description,
+      rewardImageUrl: r.rewardItem.imageUrl,
+      costAtPurchase: r.costAtPurchase,
+      redemptionCode: r.redemptionCode,
+      status: r.status,
+      claimedAt: r.claimedAt,
+      createdAt: r.createdAt,
+      isEvent: false,
+    }));
 
     res.status(200).json({
       success: true,
-      data: redemptions.map((r) => ({
-        id: r.id,
-        rewardTitle: r.rewardItem.title,
-        rewardDescription: r.rewardItem.description,
-        rewardImageUrl: r.rewardItem.imageUrl,
-        costAtPurchase: r.costAtPurchase,
-        redemptionCode: r.redemptionCode,
-        status: r.status,
-        claimedAt: r.claimedAt,
-        createdAt: r.createdAt,
-      })),
+      data: [...rewardVouchers, ...eventRedemptions.map(mapKrathongRedemption)].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+      ),
     });
   } catch (error) {
     next(error);
@@ -210,9 +311,10 @@ export async function getMyRedemptions(req, res, next) {
 export async function claimVoucher(req, res, next) {
   try {
     const { code } = req.params;
+    const normalizedCode = code.trim().toUpperCase();
 
     const redemption = await prisma.redemption.findUnique({
-      where: { redemptionCode: code.toUpperCase() },
+      where: { redemptionCode: normalizedCode },
       include: {
         rewardItem: true,
         user: { select: { displayName: true, studentId: true } },
@@ -220,7 +322,57 @@ export async function claimVoucher(req, res, next) {
     });
 
     if (!redemption) {
-      throw new AppError(404, 'Voucher code not found', 'VOUCHER_NOT_FOUND');
+      const eventRedemption = await prisma.eventRedemption.findUnique({
+        where: { redemptionCode: normalizedCode },
+        include: {
+          user: { select: { displayName: true, studentId: true } },
+        },
+      });
+
+      if (!eventRedemption) {
+        throw new AppError(404, 'Voucher code not found', 'VOUCHER_NOT_FOUND');
+      }
+
+      if (eventRedemption.status === 'CLAIMED') {
+        throw new AppError(
+          400,
+          `Voucher was already claimed on ${eventRedemption.claimedAt}`,
+          'ALREADY_CLAIMED',
+        );
+      }
+
+      const eventUpdate = await prisma.eventRedemption.updateMany({
+        where: { id: eventRedemption.id, status: 'PENDING' },
+        data: { status: 'CLAIMED', claimedAt: new Date() },
+      });
+
+      if (eventUpdate.count === 0) {
+        throw new AppError(
+          400,
+          'Voucher has already been claimed or is not in claimable status',
+          'ALREADY_CLAIMED',
+        );
+      }
+
+      const updatedEventRedemption = await prisma.eventRedemption.findUnique({
+        where: { id: eventRedemption.id },
+      });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          id: updatedEventRedemption.id,
+          status: updatedEventRedemption.status,
+          claimedAt: updatedEventRedemption.claimedAt,
+          studentName: eventRedemption.user.displayName,
+          studentId: eventRedemption.user.studentId,
+          rewardTitle: `สิทธิ์${KRATHONG_EVENT.title}`,
+          materialType: eventRedemption.materialType,
+          materialRequirement: describeKrathongMaterial(eventRedemption.materialType),
+        },
+        message: 'Krathong event voucher marked as successfully claimed',
+      });
+      return;
     }
 
     if (redemption.status === 'CLAIMED') {

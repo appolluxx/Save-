@@ -38,6 +38,25 @@ export const REDEMPTION_STATUSES = Object.freeze({
   CANCELLED: 'CANCELLED',
 });
 
+export const KRATHONG_EVENT = Object.freeze({
+  key: 'krathong-2026',
+  title: 'แลกกระทงรักษ์โลก',
+  materials: Object.freeze({
+    PET: Object.freeze({
+      label: 'PET',
+      quantity: 10,
+      unit: 'ขวด',
+      condition: 'ต้องล้างสะอาดและบีบแบน',
+    }),
+    CAN: Object.freeze({
+      label: 'CAN',
+      quantity: 5,
+      unit: 'กระป๋อง',
+      condition: 'ต้องล้างสะอาดและบีบแบน',
+    }),
+  }),
+});
+
 export const PIN_TYPES = Object.freeze({
   FULL_BIN: 'FULL_BIN',
   HAZARD: 'HAZARD',

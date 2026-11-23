@@ -109,6 +109,7 @@ model User {
   reviewedActions   EcoAction[]        @relation("ReviewedActions")
   pointTransactions PointTransaction[]
   redemptions       Redemption[]
+  eventRedemptions  EventRedemption[]
   badges            UserBadge[]
   reportedPins      MapPin[]           @relation("ReportedPins")
   resolvedPins      MapPin[]           @relation("ResolvedPins")
@@ -234,6 +235,23 @@ model Redemption {
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
   @@map("redemptions")
+}
+
+model EventRedemption {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  eventKey       String           @map("event_key")
+  materialType   String           @map("material_type")
+  redemptionCode String           @unique @map("redemption_code")
+  status         RedemptionStatus @default(PENDING)
+  claimedAt      DateTime?        @map("claimed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, eventKey])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("event_redemptions")
 }
 
 // ---------------------------------------------------------------------------

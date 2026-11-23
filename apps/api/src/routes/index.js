@@ -76,6 +76,11 @@ apiRouter.use('/actions', actionsRouter);
 const marketplaceRouter = Router();
 marketplaceRouter.get('/items', marketplaceController.listItems);
 marketplaceRouter.post('/purchase', authenticate, marketplaceController.purchaseItem);
+marketplaceRouter.post(
+  '/krathong/redeem',
+  authenticate,
+  marketplaceController.redeemKrathongEvent,
+);
 marketplaceRouter.get('/redemptions', authenticate, marketplaceController.getMyRedemptions);
 marketplaceRouter.patch(
   '/redemptions/:code/claim',

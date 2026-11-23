@@ -4,10 +4,12 @@ import {
   CheckCircle2,
   LoaderCircle,
   PackageOpen,
+  Recycle,
   ShoppingBag,
   Ticket,
   X,
 } from 'lucide-react';
+import { KRATHONG_EVENT } from '@saveraks/shared/constants';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
@@ -20,8 +22,16 @@ export function ShopPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedEventMaterial, setSelectedEventMaterial] = useState(null);
   const [purchasing, setPurchasing] = useState(false);
+  const [redeemingEvent, setRedeemingEvent] = useState(false);
   const [tab, setTab] = useState('catalog');
+  const krathongRedemption = redemptions.find(
+    (redemption) => redemption.eventKey === KRATHONG_EVENT.key,
+  );
+  const selectedEventInfo = selectedEventMaterial
+    ? KRATHONG_EVENT.materials[selectedEventMaterial]
+    : null;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -66,6 +76,31 @@ export function ShopPage() {
       setError(requestError.message || 'แลกรางวัลไม่สำเร็จ');
     } finally {
       setPurchasing(false);
+    }
+  };
+
+  const redeemKrathong = async () => {
+    if (!selectedEventMaterial || krathongRedemption) return;
+    setRedeemingEvent(true);
+    setError('');
+    setNotice(null);
+    try {
+      const response = await api.post('/api/marketplace/krathong/redeem', {
+        materialType: selectedEventMaterial,
+      });
+      const redemption = response.data?.redemption;
+      if (!response.success || !redemption?.redemptionCode)
+        throw new Error('ระบบไม่ได้ยืนยันสิทธิ์แลกกระทง');
+      setSelectedEventMaterial(null);
+      setNotice({
+        title: redemption.rewardTitle,
+        redemptionCode: redemption.redemptionCode,
+      });
+      await loadData();
+    } catch (requestError) {
+      setError(requestError.message || 'สร้างรหัสแลกกระทงไม่สำเร็จ');
+    } finally {
+      setRedeemingEvent(false);
     }
   };
 
@@ -142,6 +177,12 @@ export function ShopPage() {
 
       {tab === 'catalog' ? (
         <section className="page-enter">
+          <KrathongEventCard
+            redemption={krathongRedemption}
+            disabled={loading || redeemingEvent}
+            onSelectMaterial={setSelectedEventMaterial}
+          />
+
           <div className="mb-3 flex items-end justify-between">
             <div>
               <p className="eyebrow">LIVE CATALOG</p>
@@ -256,7 +297,9 @@ export function ShopPage() {
                       {redemption.redemptionCode}
                     </p>
                     <p className="mt-1 text-[10px] text-brand-muted">
-                      ใช้ {Number(redemption.costAtPurchase).toLocaleString('th-TH')} แต้ม ·{' '}
+                      {redemption.isEvent
+                        ? 'สิทธิ์กิจกรรม · '
+                        : `ใช้ ${Number(redemption.costAtPurchase).toLocaleString('th-TH')} แต้ม · `}
                       {new Date(redemption.createdAt).toLocaleString('th-TH', {
                         dateStyle: 'medium',
                       })}
@@ -344,7 +387,153 @@ export function ShopPage() {
           </section>
         </div>
       )}
+
+      {selectedEventMaterial && selectedEventInfo && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !redeemingEvent)
+              setSelectedEventMaterial(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="krathong-confirm-title"
+            className="modal-card"
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedEventMaterial(null)}
+              disabled={redeemingEvent}
+              aria-label="ปิด"
+              className="absolute right-4 top-4 rounded-full p-2 text-brand-muted hover:bg-brand-soft"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-canvas text-brand-positive">
+              <Ticket className="h-6 w-6" />
+            </span>
+            <h2 id="krathong-confirm-title" className="mt-4 text-lg font-black">
+              ยืนยันรับโค้ดแลกกระทง
+            </h2>
+            <p className="mt-2 text-sm font-bold text-brand-ink">
+              {selectedEventInfo.label} {selectedEventInfo.quantity} {selectedEventInfo.unit}
+            </p>
+            <p className="mt-1 text-xs text-brand-body">{selectedEventInfo.condition}</p>
+            <div className="mt-4 rounded-xl bg-brand-canvas p-3 text-xs leading-relaxed text-brand-body">
+              จำกัด 1 ใบต่อท่าน เมื่อสร้างโค้ดแล้วจะเปลี่ยนประเภทวัสดุไม่ได้
+              แสดงโค้ดนี้ให้เจ้าหน้าที่ตรวจวัสดุก่อนรับกระทง
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedEventMaterial(null)}
+                disabled={redeemingEvent}
+                className="button-secondary flex-1 justify-center"
+              >
+                ย้อนกลับ
+              </button>
+              <button
+                type="button"
+                onClick={redeemKrathong}
+                disabled={redeemingEvent}
+                className="button-primary flex-1 justify-center"
+              >
+                {redeemingEvent ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    กำลังสร้างโค้ด…
+                  </>
+                ) : (
+                  'ยืนยันรับโค้ด'
+                )}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
+  );
+}
+
+function KrathongEventCard({ redemption, disabled, onSelectMaterial }) {
+  const selectedMaterial = redemption
+    ? KRATHONG_EVENT.materials[redemption.materialType]
+    : null;
+
+  return (
+    <article className="mb-6 overflow-hidden rounded-3xl border border-emerald-100 bg-brand-canvas p-5 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-brand-primary">
+            <Recycle className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="eyebrow">กิจกรรมพิเศษ</p>
+            <h2 className="section-title mt-1">{KRATHONG_EVENT.title}</h2>
+            <p className="mt-1 text-xs leading-relaxed text-brand-muted">
+              นำวัสดุตามเกณฑ์มาแลกกระทง 1 ใบ แล้วแสดงโค้ดในแอปให้เจ้าหน้าที่ตรวจ
+            </p>
+          </div>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1.5 text-[11px] font-extrabold text-brand-primary">
+          จำกัด 1 ใบต่อท่าน
+        </span>
+      </div>
+
+      {redemption ? (
+        <div className="mt-5 rounded-2xl border border-emerald-100 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-extrabold text-brand-ink">โค้ดสิทธิ์ของคุณ</p>
+            <span
+              className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${redemption.status === 'CLAIMED' ? 'bg-slate-100 text-slate-600' : 'bg-brand-canvas text-brand-positive'}`}
+            >
+              {redemption.status === 'CLAIMED' ? 'ใช้สิทธิ์แล้ว' : 'พร้อมแสดง'}
+            </span>
+          </div>
+          <p className="mt-2 font-mono text-xl font-black tracking-widest text-brand-primary">
+            {redemption.redemptionCode}
+          </p>
+          {selectedMaterial && (
+            <p className="mt-1 text-xs font-semibold text-brand-body">
+              {selectedMaterial.label} {selectedMaterial.quantity} {selectedMaterial.unit} ·{' '}
+              {selectedMaterial.condition}
+            </p>
+          )}
+          <p className="mt-2 text-[11px] text-brand-muted">
+            กลับมาเปิดดูโค้ดได้ที่การ์ดนี้หรือแท็บ “คูปองของฉัน”
+          </p>
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {Object.entries(KRATHONG_EVENT.materials).map(([materialType, material]) => (
+            <div key={materialType} className="rounded-2xl border border-white bg-white p-4">
+              <p className="text-xs font-extrabold tracking-wide text-brand-primary">
+                {material.label}
+              </p>
+              <p className="mt-1 text-lg font-black text-brand-ink">
+                {material.quantity} {material.unit}
+              </p>
+              <p className="mt-1 text-xs text-brand-muted">{material.condition}</p>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onSelectMaterial(materialType)}
+                className="button-primary mt-4 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                เลือก {material.label}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-4 text-[11px] leading-relaxed text-brand-muted">
+        ใช้ขวด PET 10 ขวด หรือกระป๋อง 5 ใบ · ต้องล้างสะอาดและบีบแบน · หนึ่งบัญชีรับสิทธิ์ได้ครั้งเดียว
+      </p>
+    </article>
   );
 }
 

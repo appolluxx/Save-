@@ -62,14 +62,10 @@ export function setAuthCookie(res, token) {
   });
 }
 
-/**
- * Generates an uppercase, cryptographically secure voucher claim code.
- * Format: SR-XXXX-XXXX
- */
-export function generateVoucherCode() {
+function generateReadableCode(prefix) {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // Excludes confusing characters (0, 1, I, O)
   const bytes = crypto.randomBytes(8);
-  let code = 'SR-';
+  let code = `${prefix}-`;
   for (let i = 0; i < 4; i++) {
     code += chars[bytes[i] % chars.length];
   }
@@ -78,6 +74,22 @@ export function generateVoucherCode() {
     code += chars[bytes[i] % chars.length];
   }
   return code;
+}
+
+/**
+ * Generates an uppercase, cryptographically secure marketplace voucher code.
+ * Format: SR-XXXX-XXXX
+ */
+export function generateVoucherCode() {
+  return generateReadableCode('SR');
+}
+
+/**
+ * Generates a distinct code namespace for Krathong event vouchers.
+ * Format: KT-XXXX-XXXX
+ */
+export function generateKrathongVoucherCode() {
+  return generateReadableCode('KT');
 }
 
 /**

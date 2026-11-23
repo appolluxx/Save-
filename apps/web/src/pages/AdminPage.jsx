@@ -121,8 +121,11 @@ export function AdminPage() {
         `/api/marketplace/redemptions/${encodeURIComponent(code)}/claim`,
         {},
       );
+      const materialNote = response.data?.materialRequirement
+        ? ` · ${response.data.materialRequirement}`
+        : '';
       setNotice(
-        `รับคูปอง ${response.data?.rewardTitle || ''} ของ ${response.data?.studentName || ''} สำเร็จ`,
+        `รับคูปอง ${response.data?.rewardTitle || ''}${materialNote} ของ ${response.data?.studentName || ''} สำเร็จ`,
       );
       setVoucher('');
     } catch (requestError) {
