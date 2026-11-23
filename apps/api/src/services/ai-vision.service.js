@@ -27,12 +27,12 @@ Available 4-Color Waste Bins:
 
 Respond STRICTLY with a single JSON object matching this schema (no markdown fences, no extra text):
 {
-  "isValid": boolean (true if image shows recognizable environmental or waste sorting action),
+  "isValid": boolean (true when a recognizable waste item is visible, even if no person or bin is shown; false when there is no visible waste or the photo is too unclear),
   "detectedCategory": string (e.g. "RECYCLE_PET", "RECYCLE_CAN", "ORGANIC_FOOD", "GENERAL_WRAPPER", "HAZARDOUS_BATTERY"),
   "confidence": number (between 0.0 and 1.0),
   "detectedObjects": string[] (list of recognized items, e.g. ["plastic bottle", "yellow bin"]),
   "thaiSummary": string (clear Thai advice, e.g. "ขวดน้ำดื่ม PET ควรเทน้ำออก บีบขวดให้แบน แล้วทิ้งลงถังสีเหลือง"),
-  "recommendedBinColor": "YELLOW" | "GREEN" | "BLUE" | "ORANGE_RED"
+  "recommendedBinColor": "YELLOW" | "GREEN" | "BLUE" | "ORANGE_RED" | null (null when the image cannot be classified)
 }
 `;
 
@@ -55,7 +55,7 @@ export async function analyzeWasteImage(imageBuffer) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.2-11b-vision-preview',
+          model: 'qwen/qwen3.8-27b',
           messages: [
             { role: 'system', content: SYSTEM_INSTRUCTION },
             {
@@ -68,7 +68,7 @@ export async function analyzeWasteImage(imageBuffer) {
           ],
           response_format: { type: 'json_object' },
           temperature: 0.1,
-          max_tokens: 500,
+          max_completion_tokens: 500,
         }),
       });
 
@@ -80,6 +80,9 @@ export async function analyzeWasteImage(imageBuffer) {
         if (validated.success) {
           return validated.data;
         }
+        console.warn('Groq Vision API returned an invalid classification response');
+      } else {
+        console.warn(`Groq Vision API returned HTTP ${response.status}`);
       }
     } catch (groqErr) {
       console.warn('⚠️ Groq Vision API failed, attempting Gemini fallback:', groqErr.message);
@@ -136,7 +139,7 @@ export async function analyzeWasteImage(imageBuffer) {
     detectedCategory: 'MANUAL_REVIEW',
     confidence: 0.5,
     detectedObjects: ['unverified photo'],
-    thaiSummary: 'ระบบกำลังจัดคิวให้คุณครูหรือเจ้าหน้าที่ตรวจสอบภาพถ่ายด้วยตนเอง',
-    recommendedBinColor: 'YELLOW',
+    thaiSummary: 'ระบบยังเชื่อมต่อ AI วิเคราะห์ภาพไม่ได้ กรุณาลองใหม่ภายหลัง',
+    recommendedBinColor: null,
   };
 }

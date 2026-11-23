@@ -214,6 +214,44 @@ describe('Phase 3: Storage, Anti-Cheat & AI Vision Services', () => {
   });
 
   describe('AI Vision Service (Resilience & Output Schema)', () => {
+    it('uses the currently supported Groq vision model for photo classification', async () => {
+      const originalGroqKey = env.GROQ_API_KEY;
+      const originalFetch = globalThis.fetch;
+      let requestBody;
+      env.GROQ_API_KEY = 'test-groq-key';
+      globalThis.fetch = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [{
+              message: {
+                content: JSON.stringify({
+                  isValid: true,
+                  detectedCategory: 'RECYCLE_PET',
+                  confidence: 0.96,
+                  detectedObjects: ['ขวด PET'],
+                  thaiSummary: 'เทน้ำออกและบีบขวดก่อนทิ้ง',
+                  recommendedBinColor: 'YELLOW',
+                }),
+              },
+            }],
+          }),
+        };
+      };
+
+      try {
+        const analysis = await analyzeWasteImage(Buffer.from('sample image'));
+        assert.equal(requestBody.model, 'qwen/qwen3.8-27b');
+        assert.equal(requestBody.max_completion_tokens, 500);
+        assert.equal(analysis.detectedCategory, 'RECYCLE_PET');
+        assert.equal(analysis.recommendedBinColor, 'YELLOW');
+      } finally {
+        env.GROQ_API_KEY = originalGroqKey;
+        globalThis.fetch = originalFetch;
+      }
+    });
+
     it('should return valid fallback output when external AI keys are unavailable', async () => {
       const testBuffer = await sharp({
         create: { width: 300, height: 300, channels: 3, background: { r: 100, g: 200, b: 100 } },
@@ -225,7 +263,10 @@ describe('Phase 3: Storage, Anti-Cheat & AI Vision Services', () => {
       assert.ok(typeof analysis.confidence === 'number');
       assert.ok(Array.isArray(analysis.detectedObjects));
       assert.ok(analysis.thaiSummary);
-      assert.ok(['YELLOW', 'GREEN', 'BLUE', 'ORANGE_RED'].includes(analysis.recommendedBinColor));
+      assert.ok(
+        analysis.recommendedBinColor === null ||
+        ['YELLOW', 'GREEN', 'BLUE', 'ORANGE_RED'].includes(analysis.recommendedBinColor)
+      );
     });
 
     it('should correctly flag invalid environmental image (isValid: false) as PENDING review with 0 points', () => {

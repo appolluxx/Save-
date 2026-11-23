@@ -83,22 +83,56 @@ test.describe('Navigation & Responsive Layout', () => {
     }
   });
 
-  test('submits one real evidence file and displays the server verdict', async ({ page }) => {
+  test('submits only a waste photo and displays the AI classification', async ({ page }) => {
     await mockStudent(page);
     let uploaded = false;
+    let sentType = false;
     await page.route('**/api/actions', async (route) => {
       const body = route.request().postDataBuffer();
-      uploaded = Boolean(body?.length && body.includes(Buffer.from('image')));
-      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ success: true, data: { action: { id: 'action-new', type: 'RECYCLE_PET', status: 'PENDING', pointsAwarded: 0, co2SavedKg: 0, createdAt: '2026-11-04T04:00:00.000Z' }, verdict: 'PENDING', message: 'ส่งเข้าคิวรอตรวจแล้ว' } }) });
+      uploaded = Boolean(body?.length && body.includes(Buffer.from('name="image"')));
+      sentType = Boolean(body?.includes(Buffer.from('name="type"')));
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ success: true, data: { action: { id: 'action-new', type: 'RECYCLE_PET', status: 'PENDING', pointsAwarded: 0, co2SavedKg: 0, createdAt: '2026-11-04T04:00:00.000Z' }, analysis: { isValid: true, detectedCategory: 'RECYCLE_PET', confidence: 0.94, detectedObjects: ['ขวด PET'], thaiSummary: 'เทน้ำออกและบีบขวดก่อนทิ้ง', recommendedBinColor: 'YELLOW' }, verdict: 'PENDING', message: 'ส่งเข้าคิวรอตรวจแล้ว' } }) });
     });
     await page.goto('/submit');
+    await expect(page.getByRole('heading', { name: 'เลือกประเภทกิจกรรม' })).toHaveCount(0);
     await page.locator('input[type="file"]').setInputFiles({ name: 'evidence.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) });
-    await page.getByPlaceholder(/อธิบายสิ่งที่ทำ/).fill('แยกขวดที่จุดรีไซเคิล');
-    await page.getByRole('checkbox').check();
-    await page.getByRole('button', { name: 'ส่งหลักฐาน' }).click();
+    await page.getByRole('button', { name: 'ส่งรูปให้ AI ตรวจและบันทึก' }).click();
     await expect(page.getByText('สถานะ: PENDING · 0 แต้ม')).toBeVisible();
-    await expect(page.getByText('สถานะ: PENDING · 0 แต้ม')).toBeVisible();
+    await expect(page.getByText('ความมั่นใจของ AI 94%')).toBeVisible();
+    await expect(page.getByText('ขวด PET')).toBeVisible();
     expect(uploaded).toBe(true);
+    expect(sentType).toBe(false);
+  });
+
+  test('does not invent a bin or grant points when AI is unavailable', async ({ page }) => {
+    await mockStudent(page);
+    await page.route('**/api/actions', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          action: null,
+          analysis: {
+            isValid: true,
+            detectedCategory: 'MANUAL_REVIEW',
+            confidence: 0.5,
+            detectedObjects: ['unverified photo'],
+            thaiSummary: 'ระบบยังเชื่อมต่อ AI วิเคราะห์ภาพไม่ได้ กรุณาลองใหม่ภายหลัง',
+            recommendedBinColor: null,
+          },
+          verdict: 'SORTED_ONLY',
+          message: 'AI ยังจำแนกภาพนี้ไม่ได้ จึงยังไม่บันทึกภารกิจหรือคะแนน',
+        },
+      }),
+    }));
+    await page.goto('/submit');
+    await page.locator('input[type="file"]').setInputFiles({ name: 'waste.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) });
+    await page.getByRole('button', { name: 'ส่งรูปให้ AI ตรวจและบันทึก' }).click();
+    await expect(page.getByText('ยังจำแนกประเภทไม่ได้')).toBeVisible();
+    await expect(page.getByText('ระบบยังเชื่อมต่อ AI วิเคราะห์ภาพไม่ได้ กรุณาลองใหม่ภายหลัง', { exact: true })).toBeVisible();
+    await expect(page.getByText('ถังที่แนะนำ')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'ดูประวัติ' })).toHaveCount(0);
   });
 
   test('reports a map issue only after attaching the device coordinates', async ({ page }) => {

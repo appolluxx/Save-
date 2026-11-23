@@ -305,6 +305,13 @@ describe('SaveRaks Validation Schemas (Zod)', () => {
       assert.equal(res.data.description, '');
     });
 
+    it('should accept a photo-only submission for AI classification', () => {
+      const res = actionSubmissionSchema.safeParse({});
+      assert.ok(res.success);
+      assert.equal(res.data.type, undefined);
+      assert.equal(res.data.description, '');
+    });
+
     it('should reject invalid action types', () => {
       assert.equal(actionSubmissionSchema.safeParse({ type: 'INVALID_TYPE' }).success, false);
       assert.equal(actionSubmissionSchema.safeParse({ type: '' }).success, false);
@@ -349,6 +356,10 @@ describe('SaveRaks Validation Schemas (Zod)', () => {
       const res = aiVisionOutputSchema.safeParse(validAIResponse);
       assert.ok(res.success);
       assert.equal(res.data.confidence, 0.95);
+      assert.equal(
+        aiVisionOutputSchema.safeParse({ ...validAIResponse, recommendedBinColor: null }).success,
+        true
+      );
     });
 
     it('should reject invalid confidence values (<0 or >1)', () => {

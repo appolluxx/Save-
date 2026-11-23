@@ -255,9 +255,11 @@ export function VisionPage() {
                 <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
                   <Info className="h-4 w-4 shrink-0" />
                   ระบบยังให้คำแนะนำถังจากภาพนี้ไม่ได้{' '}
-                  {analysis.isValid
-                    ? 'รายละเอียดนี้ควรผ่านการตรวจจากเจ้าหน้าที่ก่อน'
-                    : 'ระบบระบุว่าภาพนี้ยังไม่ใช่หลักฐานกิจกรรมรักษ์โลกที่ยืนยันได้'}
+                  {analysis.detectedCategory === 'MANUAL_REVIEW'
+                    ? 'ระบบยังเชื่อมต่อ AI วิเคราะห์ภาพไม่ได้ กรุณาลองใหม่ภายหลัง'
+                    : analysis.isValid
+                      ? 'รายละเอียดนี้ควรผ่านการตรวจจากเจ้าหน้าที่ก่อน'
+                      : 'ระบบระบุว่าภาพนี้ยังไม่ใช่หลักฐานกิจกรรมรักษ์โลกที่ยืนยันได้'}
                 </div>
               )}
               <button

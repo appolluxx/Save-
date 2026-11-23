@@ -49,6 +49,15 @@ const WEEKDAY_INDEX_FROM_MONDAY = Object.freeze({
   Sun: 6,
 });
 const THAI_WEEKDAY_LABELS = Object.freeze(['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.']);
+const AI_ACTION_TYPE_MAP = Object.freeze({
+  RECYCLE_PET: ACTION_TYPES.RECYCLE_PET,
+  RECYCLE_CAN: ACTION_TYPES.RECYCLE_CAN,
+  RECYCLE_PAPER: ACTION_TYPES.RECYCLE_PAPER,
+});
+
+export function mapAiDetectedCategoryToActionType(category) {
+  return AI_ACTION_TYPE_MAP[String(category || '').trim().toUpperCase()] || null;
+}
 
 /**
  * Returns Monday at 00:00 in the school's Asia/Bangkok timezone as a UTC Date.
@@ -140,29 +149,56 @@ export async function submitAction(req, res, next) {
       latitude: req.body.latitude ? Number(req.body.latitude) : undefined,
       longitude: req.body.longitude ? Number(req.body.longitude) : undefined,
     });
-
+    // The submitted activity type is retained only for older clients. The AI
+    // result is always authoritative so callers cannot choose a higher-value
+    // activity by sending a forged type.
     // 2. Validate Image Attachment
     if (!req.file || !req.file.buffer) {
       throw new AppError(400, 'A photographic evidence image is required for environmental actions', 'MISSING_IMAGE');
     }
 
-    // 3. Enforce Commute Time Window Rules (if applicable)
+    // 3. Enforce Cooldown (60s) and Hourly Caps (10/hr)
+    await enforceRateLimits(userId, prisma);
+
+    // 5. Sanitize & Optimize Image with Sharp
+    const { mainBuffer, thumbBuffer } = await sanitizeAndProcessImage(req.file.buffer);
+
+    // 6. Run AI classification before creating any persisted action data.
+    const aiAnalysis = await analyzeWasteImage(mainBuffer);
+
+    const actionType = aiAnalysis.isValid
+      ? mapAiDetectedCategoryToActionType(aiAnalysis.detectedCategory)
+      : null;
+
+    // A valid sorting result can still be returned without claiming points when
+    // the detected category has no supported activity type yet.
+    if (!actionType) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          action: null,
+          analysis: aiAnalysis,
+          verdict: 'SORTED_ONLY',
+          message: aiAnalysis.isValid
+            ? 'AI แนะนำการคัดแยกแล้ว แต่ประเภทนี้ยังไม่เปิดรับคะแนน จึงยังไม่บันทึกภารกิจ'
+            : 'AI ยังจำแนกภาพนี้ไม่ได้ จึงยังไม่บันทึกภารกิจหรือคะแนน',
+        },
+      });
+    }
+
+    // Client supplied activity types are ignored. Apply any type-specific
+    // restrictions only after selecting the authoritative type from AI.
     let commuteWindowKey = null;
-    if (COMMUTE_RULES.ELIGIBLE_ACTION_TYPES.includes(payload.type)) {
+    if (COMMUTE_RULES.ELIGIBLE_ACTION_TYPES.includes(actionType)) {
       const commuteCheck = evaluateCommuteWindow(new Date());
       if (!commuteCheck.isValid) {
         throw new AppError(400, commuteCheck.reason, 'COMMUTE_WINDOW_VIOLATION');
       }
       commuteWindowKey = commuteCheck.commuteWindowKey;
 
-      // Check if user already submitted in this window
       const existingCommute = await prisma.ecoAction.findFirst({
-        where: {
-          userId,
-          commuteWindowKey,
-        },
+        where: { userId, commuteWindowKey },
       });
-
       if (existingCommute) {
         throw new AppError(
           400,
@@ -172,26 +208,17 @@ export async function submitAction(req, res, next) {
       }
     }
 
-    // 4. Enforce Cooldown (60s) and Hourly Caps (10/hr)
-    await enforceRateLimits(userId, prisma);
-
-    // 5. Sanitize & Optimize Image with Sharp
-    const { mainBuffer, thumbBuffer } = await sanitizeAndProcessImage(req.file.buffer);
-
-    // 6. Compute Perceptual Hashes & Histogram
+    // 7. Compute Perceptual Hashes & Histogram
     const fingerprint = await computeImageFingerprint(mainBuffer);
 
-    // 7. Run Database-Backed Anti-Cheat Evaluation
+    // 8. Run Database-Backed Anti-Cheat Evaluation
     const antiCheat = await evaluateImageAntiCheat(fingerprint, userId, prisma);
 
-    // 8. Upload to Persistent Cloud Storage
+    // 9. Upload to Persistent Cloud Storage only after AI maps to an activity.
     const storageResult = await uploadActionImages(mainBuffer, thumbBuffer, 'actions');
 
-    // 9. Run AI Computer Vision Analysis
-    const aiAnalysis = await analyzeWasteImage(mainBuffer);
-
     // 10. Determine Final Approval Status & Authoritative Points
-    const actionSpec = SERVER_ACTION_SPECIFICATION[payload.type];
+    const actionSpec = SERVER_ACTION_SPECIFICATION[actionType];
     const authoritativePoints = actionSpec ? actionSpec.points : 0;
     const authoritativeCo2 = actionSpec ? actionSpec.co2SavedKg : 0;
 
@@ -221,7 +248,7 @@ export async function submitAction(req, res, next) {
       const newAction = await tx.ecoAction.create({
         data: {
           userId,
-          type: payload.type,
+          type: actionType,
           status: finalStatus,
           pointsAwarded: pointsToAward,
           co2SavedKg: co2ToAward,
@@ -264,7 +291,7 @@ export async function submitAction(req, res, next) {
             balanceAfter: updatedUser.points,
             type: 'ACTION_REWARD',
             referenceId: newAction.id,
-            description: `Awarded points for verified ${payload.type}`,
+            description: `Awarded points for verified ${actionType}`,
           },
         });
       }
@@ -284,6 +311,10 @@ export async function submitAction(req, res, next) {
           imageUrl: action.imageUrl,
           thumbnailUrl: action.thumbnailUrl,
           aiSummaryThai: action.aiSummaryThai,
+          aiConfidence: action.aiConfidence,
+          aiDetectedObjects: action.aiDetectedObjects,
+          recommendedBinColor: aiAnalysis.recommendedBinColor,
+          analysis: aiAnalysis,
           rejectReason: action.rejectReason,
           createdAt: action.createdAt,
         },

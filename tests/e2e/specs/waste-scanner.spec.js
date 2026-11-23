@@ -31,14 +31,15 @@ test.describe('AI Waste Scanner & Bin Advisor', () => {
     expect(receivedImage).toBe(true);
   });
 
-  test('does not invent a bin recommendation when the service queues manual review', async ({ page }) => {
+  test('does not invent a bin recommendation when AI is unavailable', async ({ page }) => {
     await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ success: false }) }));
-    await page.route('**/api/actions/scan-preview', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { isValid: true, detectedCategory: 'MANUAL_REVIEW', confidence: 0.5, detectedObjects: ['unverified photo'], thaiSummary: 'ระบบกำลังจัดคิวให้เจ้าหน้าที่ตรวจสอบภาพถ่าย', recommendedBinColor: 'YELLOW' } }) }));
+    await page.route('**/api/actions/scan-preview', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { isValid: true, detectedCategory: 'MANUAL_REVIEW', confidence: 0.5, detectedObjects: ['unverified photo'], thaiSummary: 'ระบบยังเชื่อมต่อ AI วิเคราะห์ภาพไม่ได้ กรุณาลองใหม่ภายหลัง', recommendedBinColor: null } }) }));
     await page.goto('/vision');
     await page.locator('input[type="file"]').setInputFiles({ name: 'uncertain.jpg', mimeType: 'image/jpeg', buffer: sampleImage });
     await page.getByRole('button', { name: 'วิเคราะห์ภาพ' }).click();
     await expect(page.getByRole('heading', { name: 'ยังจำแนกไม่ได้' })).toBeVisible();
     await expect(page.getByText('ระบบยังให้คำแนะนำถังจากภาพนี้ไม่ได้')).toBeVisible();
+    await expect(page.getByText('ระบบยังเชื่อมต่อ AI วิเคราะห์ภาพไม่ได้ กรุณาลองใหม่ภายหลัง', { exact: true })).toBeVisible();
     await expect(page.getByText('ถังที่แนะนำ')).toHaveCount(0);
   });
 });

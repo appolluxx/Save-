@@ -541,8 +541,6 @@ function KrathongEventCard({ redemption, progress, disabled, onSelectMaterial })
           const remainingCount = Number(
             materialProgress?.remainingCount ?? Math.max(0, requiredCount - approvedCount),
           );
-          const actionType =
-            materialType === 'PET' ? 'RECYCLE_PET' : 'RECYCLE_CAN';
           const progressPercent = Math.min(100, (approvedCount / requiredCount) * 100);
 
           return (
@@ -579,10 +577,10 @@ function KrathongEventCard({ redemption, progress, disabled, onSelectMaterial })
                 </p>
               )}
               <Link
-                to={`/submit?type=${actionType}`}
+                to="/submit"
                 className="button-secondary mt-3 min-h-10 w-full justify-center !px-2 !py-2 text-[11px]"
               >
-                สแกน{material.label} รับแต้ม
+                ถ่ายรูปขยะให้ AI สแกน
               </Link>
               {materialProgress?.eligible && !redemption && (
                 <button

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildWeeklyTelemetry,
   getBangkokWeekStart,
+  mapAiDetectedCategoryToActionType,
 } from '../src/controllers/actions.controller.js';
 
 describe('Weekly action telemetry', () => {
@@ -34,5 +35,19 @@ describe('Weekly action telemetry', () => {
     assert.equal(telemetry.totalActions, 3);
     assert.equal(telemetry.totalPointsEarned, 45);
     assert.equal(telemetry.totalCo2SavedKg, 0.72);
+  });
+});
+
+describe('AI waste category mapping', () => {
+  it('maps supported recyclable categories to server action types', () => {
+    assert.equal(mapAiDetectedCategoryToActionType('RECYCLE_PET'), 'RECYCLE_PET');
+    assert.equal(mapAiDetectedCategoryToActionType('recycle_can'), 'RECYCLE_CAN');
+    assert.equal(mapAiDetectedCategoryToActionType(' RECYCLE_PAPER '), 'RECYCLE_PAPER');
+  });
+
+  it('does not award an activity for unsupported or missing categories', () => {
+    assert.equal(mapAiDetectedCategoryToActionType('ORGANIC_FOOD'), null);
+    assert.equal(mapAiDetectedCategoryToActionType('MANUAL_REVIEW'), null);
+    assert.equal(mapAiDetectedCategoryToActionType(undefined), null);
   });
 });

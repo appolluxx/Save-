@@ -109,7 +109,7 @@ export const googleAuthSchema = z.strictObject({
 export const actionSubmissionSchema = z.strictObject({
   type: z.nativeEnum(ACTION_TYPES, {
     errorMap: () => ({ message: 'Invalid or unsupported environmental action type' }),
-  }),
+  }).optional(),
   description: z
     .string()
     .trim()
@@ -163,7 +163,7 @@ export const aiVisionOutputSchema = z.strictObject({
     .max(1, 'Confidence cannot exceed 1'),
   detectedObjects: z.array(z.string().trim()),
   thaiSummary: z.string().trim().min(1),
-  recommendedBinColor: z.enum(['YELLOW', 'GREEN', 'BLUE', 'ORANGE_RED']),
+  recommendedBinColor: z.enum(['YELLOW', 'GREEN', 'BLUE', 'ORANGE_RED']).nullable(),
 });
 
 // ---------------------------------------------------------------------------
