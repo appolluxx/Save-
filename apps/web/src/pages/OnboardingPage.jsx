@@ -21,7 +21,7 @@ export function OnboardingPage() {
             ทุกการกระทำเล็ก ๆ ช่วยสร้างพื้นที่ที่ดีขึ้นได้
           </p>
           <img
-            src="/assets/figma/mascot-dance.png"
+            src="/assets/figma/mascot-dance-transparent.png"
             alt="มาสคอต SaveRaks"
             className="mascot-float my-7 h-56 w-auto object-contain"
           />
@@ -60,13 +60,13 @@ export function OnboardingPage() {
 
       <div className="my-auto grid w-full gap-4 sm:grid-cols-2">
         <RoleCard
-          image="/assets/figma/pixel-student.png"
+          image="/assets/figma/pixel-student-transparent.png"
           label="นักเรียน"
           description="เข้าร่วมภารกิจและติดตามคะแนน"
           onClick={() => navigate('/login?role=student')}
         />
         <RoleCard
-          image="/assets/figma/pixel-teacher.png"
+          image="/assets/figma/pixel-teacher-transparent.png"
           label="คุณครู / เจ้าหน้าที่"
           description="ดูแลหลักฐานและข้อมูลโรงเรียน"
           onClick={() => navigate('/login?role=staff')}

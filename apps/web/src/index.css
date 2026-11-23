@@ -119,7 +119,7 @@ textarea:focus-visible {
   }
 
   .card-panel {
-    @apply rounded-2xl border border-gray-200 bg-brand-surface p-4 sm:p-6;
+    @apply rounded-2xl border border-gray-200 bg-brand-surface p-4 shadow-card-soft sm:p-6;
   }
 
   .button-primary {
@@ -449,6 +449,7 @@ textarea:focus-visible {
   border-radius: 1.5rem;
   background: var(--color-primary);
   color: #fff;
+  box-shadow: 0 14px 32px -18px rgb(12 52 44 / 0.48);
 }
 
 .dashboard-hero-copy {
@@ -456,10 +457,22 @@ textarea:focus-visible {
 }
 
 .dashboard-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   color: var(--color-accent);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.dashboard-kicker::before {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: none;
+  border-radius: 9999px;
+  background: currentColor;
+  content: '';
 }
 
 .dashboard-hero-title {
@@ -504,9 +517,7 @@ textarea:focus-visible {
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: 1px solid var(--color-border);
-  border-left: 1px solid var(--color-border);
-  background: var(--color-border);
+  gap: 0.625rem;
 }
 
 .quick-action-link {
@@ -515,14 +526,49 @@ textarea:focus-visible {
   min-height: 5.75rem;
   align-items: center;
   gap: 0.75rem;
-  border-right: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
   padding: 0.875rem;
-  transition: background-color 160ms ease;
+  box-shadow: 0 2px 8px rgb(12 52 44 / 0.035);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .quick-action-link:hover {
-  background: var(--color-page);
+  transform: translateY(-1px);
+  border-color: var(--palette-sage-400);
+  background: #fff;
+  box-shadow: 0 8px 18px rgb(12 52 44 / 0.075);
+}
+
+.quick-action-icon {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.875rem;
+  background: var(--palette-sage-200);
+  color: var(--color-primary);
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
+}
+
+.quick-action-link:hover .quick-action-icon {
+  background: var(--color-accent);
+}
+
+.quick-action-link > svg {
+  transition: transform 180ms ease;
+}
+
+.quick-action-link:hover > svg {
+  transform: translateX(2px);
 }
 
 .activity-row {
@@ -754,6 +800,11 @@ textarea:focus-visible {
     flex-direction: column;
     min-height: 8rem;
     padding: 1rem;
+  }
+
+  .quick-action-link > svg {
+    align-self: flex-end;
+    margin-top: auto;
   }
 }
 

@@ -22,7 +22,7 @@ export function WelcomePage() {
         <BrandLogo className="mx-auto mt-5 h-24 w-24 rounded-2xl object-contain" />
 
         <img
-          src="/assets/figma/mascot-earth.png"
+          src="/assets/figma/mascot-earth-transparent.png"
           alt="มาสคอต SaveRaks กอดโลก"
           className="mascot-float mx-auto my-8 h-56 w-auto object-contain sm:h-64"
         />
