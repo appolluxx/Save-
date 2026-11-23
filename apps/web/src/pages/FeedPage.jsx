@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   MapPinned,
   Recycle,
-  ScanLine,
   Trophy,
   Users,
 } from 'lucide-react';
@@ -17,11 +16,10 @@ import { PageHeader } from '../components/PageHeader.jsx';
 import { ActivityFeedItem } from '../features/feed/ActivityFeedItem.jsx';
 
 const SHORTCUTS = [
-  { to: '/vision', label: 'สแกนขยะ', detail: 'ดูแนวทางคัดแยก', icon: ScanLine },
   {
     to: '/submit',
-    label: 'บันทึกภารกิจ',
-    detail: 'ส่งกิจกรรมพร้อมหลักฐาน',
+    label: 'สแกนและบันทึกขยะ',
+    detail: 'ถ่ายรูปแล้วให้ AI ตรวจและบันทึกอัตโนมัติ',
     icon: Camera,
   },
   {
@@ -107,11 +105,7 @@ export function FeedPage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/submit" className="button-lime">
               <Camera aria-hidden="true" className="h-4 w-4" />
-              บันทึกภารกิจ
-            </Link>
-            <Link to="/vision" className="button-outline-light">
-              <ScanLine aria-hidden="true" className="h-4 w-4" />
-              สแกนขยะ
+              สแกนและบันทึกขยะ
             </Link>
           </div>
         </div>

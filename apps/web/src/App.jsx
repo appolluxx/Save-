@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout.jsx';
 import { ProtectedRoute } from './components/ProtectedRoute.jsx';
 
@@ -8,7 +8,6 @@ import { FeedPage } from './pages/FeedPage.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { OnboardingPage } from './pages/OnboardingPage.jsx';
 import { WelcomePage } from './pages/WelcomePage.jsx';
-import { VisionPage } from './pages/VisionPage.jsx';
 import { SubmitActionPage } from './pages/SubmitActionPage.jsx';
 import { ShopPage } from './pages/ShopPage.jsx';
 import { LeaderboardPage } from './pages/LeaderboardPage.jsx';
@@ -26,7 +25,7 @@ export function App() {
 
       <Route path="/" element={<Layout />}>
         <Route index element={<FeedPage />} />
-        <Route path="vision" element={<VisionPage />} />
+        <Route path="vision" element={<Navigate to="/submit" replace />} />
         <Route
           path="submit"
           element={

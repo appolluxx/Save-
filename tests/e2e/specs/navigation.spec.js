@@ -35,11 +35,11 @@ test.describe('Navigation & Responsive Layout', () => {
 
     await expect(page.getByRole('heading', { name: 'พื้นที่รักษ์โลก' })).toBeVisible();
     await expect(page.getByText('นักเรียนตัวอย่าง').last()).toBeVisible();
-    await expect(page.getByText('เดินมาโรงเรียน').first()).toBeVisible();
     await expect(page.getByText('เดินทางมาโรงเรียนด้วยการเดิน')).toBeVisible();
     await expect(page.getByText('1', { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: 'สแกนขยะ' }).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: 'บันทึกภารกิจ' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'สแกนและบันทึกขยะ' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'สแกนขยะ' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'บันทึกภารกิจ' })).toHaveCount(0);
 
     for (const width of [320, 375, 390]) {
       await page.setViewportSize({ width, height: 844 });
@@ -49,14 +49,17 @@ test.describe('Navigation & Responsive Layout', () => {
     expect(runtimeErrors).toEqual([]);
   });
 
-  test('main navigation opens scanner, leaderboard, and map screens', async ({ page }) => {
+  test('navigation opens the combined scan-and-save flow, leaderboard, and map screens', async ({ page }) => {
     await mockFeedData(page);
     await mockStudent(page);
     await page.route('**/api/pins', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) }));
     await page.goto('/');
-    await page.getByRole('link', { name: 'สแกนขยะ' }).first().click();
-    await expect(page).toHaveURL(/vision/);
-    await expect(page.getByRole('heading', { name: 'สแกนก่อนทิ้ง' })).toBeVisible();
+    await page.getByRole('link', { name: 'สแกนและบันทึกขยะ' }).first().click();
+    await expect(page).toHaveURL(/submit/);
+    await expect(page.getByRole('heading', { name: 'สแกนและบันทึกขยะ' })).toBeVisible();
+    await page.goto('/vision');
+    await expect(page).toHaveURL(/submit/);
+    await expect(page.getByRole('heading', { name: 'สแกนและบันทึกขยะ' })).toBeVisible();
 
     await page.goto('/leaderboard');
     await expect(page.getByRole('heading', { name: 'กระดานผู้นำ' })).toBeVisible();
@@ -71,7 +74,7 @@ test.describe('Navigation & Responsive Layout', () => {
     await mockStudent(page);
     await page.goto('/');
     await page.setViewportSize({ width: 375, height: 812 });
-    const links = page.getByRole('navigation', { name: 'แถบเมนูหลักบนมือถือและแท็บเล็ต' }).getByRole('link');
+    const links = page.getByRole('navigation', { name: 'เมนูหลักบนมือถือ' }).getByRole('link');
     await expect(links).toHaveCount(5);
     const sizes = await links.evaluateAll((elements) => elements.map((element) => {
       const rect = element.getBoundingClientRect();
@@ -95,9 +98,9 @@ test.describe('Navigation & Responsive Layout', () => {
     });
     await page.goto('/submit');
     await expect(page.getByRole('heading', { name: 'เลือกประเภทกิจกรรม' })).toHaveCount(0);
+    await expect(page.locator('input[type="file"]')).toHaveAttribute('capture', 'environment');
     await page.locator('input[type="file"]').setInputFiles({ name: 'evidence.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) });
-    await page.getByRole('button', { name: 'ส่งรูปให้ AI ตรวจและบันทึก' }).click();
-    await expect(page.getByText('สถานะ: PENDING · 0 แต้ม')).toBeVisible();
+    await expect(page.getByText('สถานะ: รอตรวจ · 0 แต้ม')).toBeVisible();
     await expect(page.getByText('ความมั่นใจของ AI 94%')).toBeVisible();
     await expect(page.getByText('ขวด PET')).toBeVisible();
     expect(uploaded).toBe(true);
@@ -128,8 +131,7 @@ test.describe('Navigation & Responsive Layout', () => {
     }));
     await page.goto('/submit');
     await page.locator('input[type="file"]').setInputFiles({ name: 'waste.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) });
-    await page.getByRole('button', { name: 'ส่งรูปให้ AI ตรวจและบันทึก' }).click();
-    await expect(page.getByText('ยังจำแนกประเภทไม่ได้')).toBeVisible();
+    await expect(page.getByText('ยังจำแนกประเภทไม่ได้', { exact: true })).toBeVisible();
     await expect(page.getByText('ระบบยังเชื่อมต่อ AI วิเคราะห์ภาพไม่ได้ กรุณาลองใหม่ภายหลัง', { exact: true })).toBeVisible();
     await expect(page.getByText('ถังที่แนะนำ')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'ดูประวัติ' })).toHaveCount(0);

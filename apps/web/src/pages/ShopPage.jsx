@@ -506,7 +506,7 @@ function KrathongEventCard({ redemption, progress, disabled, onSelectMaterial })
             <p className="eyebrow">กิจกรรมพิเศษ</p>
             <h2 className="section-title mt-1">{KRATHONG_EVENT.title}</h2>
             <p className="mt-1 text-xs leading-relaxed text-brand-muted">
-              สแกนขยะตามปกติเพื่อรับแต้ม ระบบจะนับยอด PET และ CAN ที่อนุมัติแล้วให้อัตโนมัติ
+              ถ่ายรูปขยะในหน้า “สแกนและบันทึกขยะ” เพื่อรับแต้ม ระบบจะนับยอด PET และ CAN หลังอนุมัติให้อัตโนมัติ
             </p>
           </div>
         </div>

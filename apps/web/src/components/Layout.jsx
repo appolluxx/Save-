@@ -7,7 +7,6 @@ import {
   LogOut,
   MapPinned,
   RefreshCw,
-  ScanLine,
   Store,
   Trophy,
   UserRound,
@@ -19,8 +18,7 @@ import { Navbar } from './Navbar.jsx';
 
 const STUDENT_LINKS = [
   { to: '/', label: 'ภาพรวม', icon: Home, end: true },
-  { to: '/vision', label: 'สแกนขยะ', icon: ScanLine },
-  { to: '/submit', label: 'บันทึกภารกิจ', icon: Camera },
+  { to: '/submit', label: 'สแกนและบันทึก', icon: Camera },
   { to: '/map', label: 'แผนที่รายงาน', icon: MapPinned },
   { to: '/shop', label: 'ร้านค้าสวัสดิการ', icon: Store },
   { to: '/leaderboard', label: 'กระดานผู้นำ', icon: Trophy },

@@ -8,8 +8,6 @@ import {
   Clock3,
   Info,
   LoaderCircle,
-  Send,
-  XCircle,
 } from 'lucide-react';
 import { ACTION_METADATA, ACTION_TYPES, BIN_CATEGORIES } from '@saveraks/shared/constants';
 import { api } from '../api/client.js';
@@ -44,8 +42,9 @@ export function SubmitActionPage() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const chooseFile = (candidate) => {
+  const capturePhoto = async (candidate) => {
     if (!candidate) return;
+    if (loading) return;
     if (!allowedTypes.includes(candidate.type)) {
       setError('รองรับไฟล์ JPG, PNG หรือ WebP เท่านั้น');
       return;
@@ -57,21 +56,10 @@ export function SubmitActionPage() {
     setError('');
     setResult(null);
     setFile(candidate);
-  };
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setError('');
-    setResult(null);
-    if (!file) {
-      setError('กรุณาถ่ายรูปขยะก่อนส่งให้ AI');
-      return;
-    }
-
     setLoading(true);
     try {
       const body = new FormData();
-      body.append('image', await compressImageForUpload(file));
+      body.append('image', await compressImageForUpload(candidate));
       const response = await api.upload('/api/actions', body);
       const data = response.data;
       if (!response.success || (!data?.action && !data?.analysis)) {
@@ -89,6 +77,10 @@ export function SubmitActionPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openCamera = () => {
+    if (!loading) fileInput.current?.click();
   };
 
   const resetScan = () => {
@@ -123,17 +115,19 @@ export function SubmitActionPage() {
 
       {result && <ScanResult result={result} onReset={resetScan} />}
 
-      <form onSubmit={submit} className="mx-auto grid w-full max-w-3xl gap-5">
+      <div className="mx-auto grid w-full max-w-3xl gap-5">
         <section className="card-panel page-enter" style={{ animationDelay: '40ms' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="eyebrow">STEP 01 · PHOTO</p>
+              <p className="eyebrow">PHOTO · AI · ACTIVITY</p>
               <h2 className="section-title">ถ่ายรูปขยะ</h2>
             </div>
-            <span className="step-index">01</span>
+            <span className="rounded-full bg-brand-soft px-3 py-1.5 text-[10px] font-extrabold text-brand-primary">
+              ถ่ายครั้งเดียวจบ
+            </span>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-brand-muted">
-            ระบบจะอ่านชนิดขยะจากภาพให้เอง ไม่ต้องเลือกประเภทกิจกรรม
+            ถ่ายเสร็จแล้ว AI จะบอกชนิดขยะ แนะนำถัง และบันทึกภารกิจให้อัตโนมัติ ไม่ต้องเลือกประเภท
           </p>
           <input
             ref={fileInput}
@@ -142,15 +136,16 @@ export function SubmitActionPage() {
             accept="image/jpeg,image/png,image/webp"
             capture="environment"
             onChange={(event) => {
-              chooseFile(event.target.files?.[0]);
+              void capturePhoto(event.target.files?.[0]);
               event.target.value = '';
             }}
           />
           <button
             type="button"
-            onClick={() => fileInput.current?.click()}
-            aria-label={preview ? 'เปลี่ยนรูปขยะ' : 'ถ่ายรูปขยะ'}
-            className={`evidence-uploader mt-5 ${preview ? 'has-image' : ''}`}
+            onClick={openCamera}
+            disabled={loading}
+            aria-label={preview ? 'ถ่ายรูปขยะอีกครั้ง' : 'เปิดกล้องถ่ายรูปขยะ'}
+            className={`evidence-uploader mt-5 ${preview ? 'has-image' : ''} disabled:cursor-wait`}
           >
             {preview ? (
               <>
@@ -160,8 +155,8 @@ export function SubmitActionPage() {
                   className="h-full w-full object-cover"
                 />
                 <span className="absolute inset-x-3 bottom-3 flex items-center justify-center gap-2 rounded-xl bg-brand-primary/90 px-3 py-2 text-xs font-bold text-white">
-                  <Camera className="h-4 w-4" />
-                  เปลี่ยนรูป
+                  {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                  {loading ? 'กำลังวิเคราะห์และบันทึก…' : 'ถ่ายรูปใหม่'}
                 </span>
               </>
             ) : (
@@ -171,26 +166,31 @@ export function SubmitActionPage() {
                 </span>
                 <b className="mt-3 text-sm">ถ่ายรูปขยะ</b>
                 <small className="mt-1 text-xs text-brand-muted">
-                  JPG, PNG หรือ WebP · ไม่เกิน 5 MB · 1 รูป
+                  เปิดกล้องแล้วถ่าย 1 รูป · JPG, PNG หรือ WebP · ไม่เกิน 5 MB
                 </small>
               </span>
             )}
           </button>
 
           {file && (
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-canvas px-3 py-2 text-xs">
-              <span className="truncate font-semibold">
+            <div className="mt-3 rounded-xl bg-brand-canvas px-3 py-2 text-xs">
+              <span className="block truncate font-semibold">
                 {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
               </span>
-              <button
-                type="button"
-                onClick={() => setFile(null)}
-                aria-label="ลบรูป"
-                className="ml-3 text-red-600"
-              >
-                <XCircle className="h-4 w-4" />
-              </button>
             </div>
+          )}
+
+          {loading && (
+            <p role="status" className="mt-3 flex items-center justify-center gap-2 text-xs font-bold text-brand-primary">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              กำลังให้ AI วิเคราะห์และบันทึกภารกิจ…
+            </p>
+          )}
+
+          {error && file && !loading && (
+            <button type="button" onClick={() => void capturePhoto(file)} className="button-secondary mt-3 w-full justify-center">
+              ลองวิเคราะห์รูปนี้อีกครั้ง
+            </button>
           )}
 
           <div className="mt-5 flex items-start gap-3 rounded-2xl bg-brand-canvas p-4">
@@ -198,33 +198,11 @@ export function SubmitActionPage() {
               <Info className="h-4 w-4" />
             </span>
             <p className="text-xs leading-relaxed text-brand-body">
-              AI จะตรวจภาพและเลือกประเภทให้อัตโนมัติ รายการที่จำแนกได้และผ่านการตรวจสอบจะได้รับคะแนน
-              ส่วน PET/CAN จะเพิ่มยอดแลกกระทงเมื่ออนุมัติแล้ว
+              ผลลัพธ์จะแสดงชนิดขยะ สิ่งที่ AI พบ คำแนะนำเมื่อจำแนกได้ ความมั่นใจ คะแนน และสถานะการตรวจทันทีที่วิเคราะห์เสร็จ
             </p>
           </div>
-
-          <button
-            type="submit"
-            disabled={!file || loading || Boolean(result)}
-            className="button-primary mt-5 w-full justify-center py-3.5 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-                กำลังย่อรูปและวิเคราะห์…
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                ส่งรูปให้ AI ตรวจและบันทึก
-              </>
-            )}
-          </button>
-          <p className="mt-3 text-center text-[11px] leading-relaxed text-brand-muted">
-            ส่งเฉพาะรูปที่ถ่ายจากขยะจริง ระบบไม่ใช้ภาพตัวอย่างเพื่อรับคะแนน
-          </p>
         </section>
-      </form>
+      </div>
     </div>
   );
 }
@@ -234,7 +212,9 @@ function ScanResult({ result, onReset }) {
   const pending = action?.status === 'PENDING';
   const approved = action?.status === 'APPROVED';
   const rejected = action?.status === 'REJECTED';
-  const Icon = pending ? Clock3 : rejected ? XCircle : CheckCircle2;
+  const manualReview = Boolean(analysis && (!analysis.isValid || analysis.detectedCategory === 'MANUAL_REVIEW'));
+  const statusLabel = pending ? 'รอตรวจ' : approved ? 'อนุมัติแล้ว' : rejected ? 'ไม่ผ่าน' : action?.status;
+  const Icon = pending ? Clock3 : rejected ? XCircle : manualReview ? AlertCircle : CheckCircle2;
   const detectedCategory = analysis?.detectedCategory || action?.type;
   const categoryLabel =
     ACTION_METADATA[detectedCategory]?.nameThai || AI_CATEGORY_LABELS[detectedCategory] || detectedCategory;
@@ -248,13 +228,15 @@ function ScanResult({ result, onReset }) {
   return (
     <section
       role="status"
-      className={`rounded-2xl border p-4 ${pending ? 'border-amber-200 bg-amber-50 text-amber-950' : rejected ? 'border-red-200 bg-red-50 text-red-900' : 'border-brand-soft bg-white text-brand-ink'}`}
+      className={`rounded-2xl border p-4 ${pending || manualReview ? 'border-amber-200 bg-amber-50 text-amber-950' : rejected ? 'border-red-200 bg-red-50 text-red-900' : 'border-brand-soft bg-white text-brand-ink'}`}
     >
       <div className="flex items-start gap-3">
         <Icon className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="min-w-0 flex-1">
           <b className="text-sm">
-            {!action
+            {manualReview
+              ? 'AI ยังจำแนกประเภทไม่ได้'
+              : !action
               ? 'AI วิเคราะห์ภาพแล้ว'
               : pending
                 ? 'ส่งเข้าคิวรอตรวจแล้ว'
@@ -286,7 +268,7 @@ function ScanResult({ result, onReset }) {
           {action ? (
             <>
               <p className="mt-2 text-[11px]">
-                สถานะ: {action.status} · {Number(action.pointsAwarded || 0).toLocaleString('th-TH')} แต้ม
+                สถานะ: {statusLabel} · {Number(action.pointsAwarded || 0).toLocaleString('th-TH')} แต้ม
               </p>
               {eventEligible && pending && (
                 <p className="mt-2 rounded-xl bg-white/80 p-2 text-[11px] leading-relaxed">

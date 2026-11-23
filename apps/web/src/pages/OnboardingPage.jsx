@@ -26,7 +26,7 @@ export function OnboardingPage() {
             className="mascot-float my-7 h-56 w-auto object-contain"
           />
           <p className="max-w-sm text-center text-sm font-medium leading-relaxed text-gray-600">
-            บันทึกภารกิจ ดูผลลัพธ์ และชวนเพื่อนร่วมทำสิ่งดี ๆ ไปด้วยกัน
+            สแกนและบันทึกภารกิจ ดูผลลัพธ์ และชวนเพื่อนร่วมทำสิ่งดี ๆ ไปด้วยกัน
           </p>
         </div>
         <button

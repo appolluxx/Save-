@@ -6,7 +6,7 @@ import { Camera, ClipboardCheck, Home, MapPinned, Store, Trophy, UserRound } fro
 const STUDENT_ITEMS = [
   { to: '/', label: 'หน้าแรก', icon: Home, end: true },
   { to: '/map', label: 'แผนที่', icon: MapPinned },
-  { to: '/submit', label: 'บันทึก', icon: Camera, primary: true },
+  { to: '/submit', label: 'สแกน', icon: Camera, primary: true },
   { to: '/shop', label: 'ร้านค้า', icon: Store },
   { to: '/profile', label: 'โปรไฟล์', icon: UserRound },
 ];

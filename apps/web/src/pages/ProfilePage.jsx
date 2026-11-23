@@ -221,7 +221,7 @@ export function ProfilePage() {
               <h2 className="section-title">ประวัติกิจกรรมและคูปอง</h2>
             </div>
             <Link to="/submit" className="button-primary !px-3 !py-2 text-[11px]">
-              ส่งกิจกรรมใหม่ <ArrowRight className="h-3.5 w-3.5" />
+              สแกนและบันทึกขยะ <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
           <div className="mt-4 flex gap-1 rounded-xl bg-brand-canvas p-1">
