@@ -10,7 +10,7 @@
  * @module controllers/marketplace
  */
 
-import { KRATHONG_EVENT } from '@saveraks/shared/constants';
+import { ACTION_TYPES, KRATHONG_EVENT } from '@saveraks/shared/constants';
 import {
   krathongRedemptionSchema,
   marketplacePurchaseSchema,
@@ -21,6 +21,14 @@ import {
   generateKrathongVoucherCode,
   generateVoucherCode,
 } from '../services/auth.service.js';
+
+const KRATHONG_ACTION_TYPES = Object.freeze({
+  PET: ACTION_TYPES.RECYCLE_PET,
+  CAN: ACTION_TYPES.RECYCLE_CAN,
+});
+const KRATHONG_MATERIAL_BY_ACTION_TYPE = Object.freeze(
+  Object.fromEntries(Object.entries(KRATHONG_ACTION_TYPES).map(([material, type]) => [type, material])),
+);
 
 function describeKrathongMaterial(materialType) {
   const material = KRATHONG_EVENT.materials[materialType];
@@ -195,6 +203,54 @@ export async function purchaseItem(req, res, next) {
 }
 
 /**
+ * Returns verified PET/CAN scan totals and event progress for the current user.
+ * Only approved scans count toward redemption; pending scans are shown separately.
+ * GET /api/marketplace/krathong/progress
+ */
+export async function getKrathongProgress(req, res, next) {
+  try {
+    const rows = await prisma.ecoAction.groupBy({
+      by: ['type', 'status'],
+      where: {
+        userId: req.user.id,
+        type: { in: Object.values(KRATHONG_ACTION_TYPES) },
+        status: { in: ['APPROVED', 'PENDING'] },
+      },
+      _count: { id: true },
+    });
+
+    const materials = Object.fromEntries(
+      Object.entries(KRATHONG_EVENT.materials).map(([materialType, material]) => [
+        materialType,
+        {
+          approvedCount: 0,
+          pendingCount: 0,
+          requiredCount: material.quantity,
+          remainingCount: material.quantity,
+          eligible: false,
+        },
+      ]),
+    );
+
+    for (const row of rows) {
+      const materialType = KRATHONG_MATERIAL_BY_ACTION_TYPE[row.type];
+      if (!materialType) continue;
+      if (row.status === 'APPROVED') materials[materialType].approvedCount = row._count.id;
+      if (row.status === 'PENDING') materials[materialType].pendingCount = row._count.id;
+    }
+
+    for (const material of Object.values(materials)) {
+      material.remainingCount = Math.max(0, material.requiredCount - material.approvedCount);
+      material.eligible = material.remainingCount === 0;
+    }
+
+    res.status(200).json({ success: true, data: { materials } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Creates one persistent, no-points Krathong event voucher per user.
  * POST /api/marketplace/krathong/redeem
  */
@@ -214,6 +270,19 @@ export async function redeemKrathongEvent(req, res, next) {
         message: 'คุณมีสิทธิ์แลกกระทงแล้ว ใช้รหัสเดิมได้ที่แท็บคูปองของฉัน',
       });
       return;
+    }
+
+    const actionType = KRATHONG_ACTION_TYPES[materialType];
+    const material = KRATHONG_EVENT.materials[materialType];
+    const approvedCount = await prisma.ecoAction.count({
+      where: { userId, type: actionType, status: 'APPROVED' },
+    });
+    if (approvedCount < material.quantity) {
+      throw new AppError(
+        400,
+        `ต้องมีรายการสแกน ${material.label} ที่ได้รับอนุมัติอย่างน้อย ${material.quantity} ชิ้น (ขณะนี้ ${approvedCount} ชิ้น)`,
+        'KRATHONG_REQUIREMENT_NOT_MET',
+      );
     }
 
     let redemption;

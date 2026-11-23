@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
@@ -18,6 +19,7 @@ export function ShopPage() {
   const { user, refreshUser } = useAuth();
   const [items, setItems] = useState([]);
   const [redemptions, setRedemptions] = useState([]);
+  const [eventProgress, setEventProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null);
@@ -32,13 +34,17 @@ export function ShopPage() {
   const selectedEventInfo = selectedEventMaterial
     ? KRATHONG_EVENT.materials[selectedEventMaterial]
     : null;
+  const selectedEventProgress = selectedEventMaterial
+    ? eventProgress?.[selectedEventMaterial]
+    : null;
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
-    const [catalogResult, redemptionResult] = await Promise.allSettled([
+    const [catalogResult, redemptionResult, progressResult] = await Promise.allSettled([
       api.get('/api/marketplace/items'),
       api.get('/api/marketplace/redemptions'),
+      api.get('/api/marketplace/krathong/progress'),
     ]);
     if (catalogResult.status === 'fulfilled')
       setItems(Array.isArray(catalogResult.value.data) ? catalogResult.value.data : []);
@@ -50,6 +56,14 @@ export function ShopPage() {
         previous
           ? `${previous} · โหลดคูปองไม่สำเร็จ`
           : redemptionResult.reason?.message || 'โหลดคูปองไม่สำเร็จ',
+      );
+    if (progressResult.status === 'fulfilled')
+      setEventProgress(progressResult.value.data?.materials || {});
+    else
+      setError((previous) =>
+        previous
+          ? `${previous} · โหลดความคืบหน้ากระทงไม่สำเร็จ`
+          : progressResult.reason?.message || 'โหลดความคืบหน้ากระทงไม่สำเร็จ',
       );
     setLoading(false);
   }, []);
@@ -80,7 +94,12 @@ export function ShopPage() {
   };
 
   const redeemKrathong = async () => {
-    if (!selectedEventMaterial || krathongRedemption) return;
+    if (
+      !selectedEventMaterial ||
+      !eventProgress?.[selectedEventMaterial]?.eligible ||
+      krathongRedemption
+    )
+      return;
     setRedeemingEvent(true);
     setError('');
     setNotice(null);
@@ -179,6 +198,7 @@ export function ShopPage() {
         <section className="page-enter">
           <KrathongEventCard
             redemption={krathongRedemption}
+            progress={eventProgress}
             disabled={loading || redeemingEvent}
             onSelectMaterial={setSelectedEventMaterial}
           />
@@ -422,6 +442,10 @@ export function ShopPage() {
               {selectedEventInfo.label} {selectedEventInfo.quantity} {selectedEventInfo.unit}
             </p>
             <p className="mt-1 text-xs text-brand-body">{selectedEventInfo.condition}</p>
+            <p className="mt-3 rounded-xl bg-brand-canvas p-3 text-xs font-semibold text-brand-body">
+              สแกนที่อนุมัติแล้ว {Number(selectedEventProgress?.approvedCount || 0).toLocaleString('th-TH')}/
+              {selectedEventInfo.quantity} {selectedEventInfo.unit}
+            </p>
             <div className="mt-4 rounded-xl bg-brand-canvas p-3 text-xs leading-relaxed text-brand-body">
               จำกัด 1 ใบต่อท่าน เมื่อสร้างโค้ดแล้วจะเปลี่ยนประเภทวัสดุไม่ได้
               แสดงโค้ดนี้ให้เจ้าหน้าที่ตรวจวัสดุก่อนรับกระทง
@@ -458,7 +482,7 @@ export function ShopPage() {
   );
 }
 
-function KrathongEventCard({ redemption, disabled, onSelectMaterial }) {
+function KrathongEventCard({ redemption, progress, disabled, onSelectMaterial }) {
   const selectedMaterial = redemption
     ? KRATHONG_EVENT.materials[redemption.materialType]
     : null;
@@ -474,7 +498,7 @@ function KrathongEventCard({ redemption, disabled, onSelectMaterial }) {
             <p className="eyebrow">กิจกรรมพิเศษ</p>
             <h2 className="section-title mt-1">{KRATHONG_EVENT.title}</h2>
             <p className="mt-1 text-xs leading-relaxed text-brand-muted">
-              นำวัสดุตามเกณฑ์มาแลกกระทง 1 ใบ แล้วแสดงโค้ดในแอปให้เจ้าหน้าที่ตรวจ
+              สแกนขยะตามปกติเพื่อรับแต้ม ระบบจะนับยอด PET และ CAN ที่อนุมัติแล้วให้อัตโนมัติ
             </p>
           </div>
         </div>
@@ -483,7 +507,7 @@ function KrathongEventCard({ redemption, disabled, onSelectMaterial }) {
         </span>
       </div>
 
-      {redemption ? (
+      {redemption && (
         <div className="mt-5 rounded-2xl border border-emerald-100 bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-extrabold text-brand-ink">โค้ดสิทธิ์ของคุณ</p>
@@ -506,32 +530,77 @@ function KrathongEventCard({ redemption, disabled, onSelectMaterial }) {
             กลับมาเปิดดูโค้ดได้ที่การ์ดนี้หรือแท็บ “คูปองของฉัน”
           </p>
         </div>
-      ) : (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {Object.entries(KRATHONG_EVENT.materials).map(([materialType, material]) => (
-            <div key={materialType} className="rounded-2xl border border-white bg-white p-4">
-              <p className="text-xs font-extrabold tracking-wide text-brand-primary">
-                {material.label}
-              </p>
-              <p className="mt-1 text-lg font-black text-brand-ink">
-                {material.quantity} {material.unit}
-              </p>
-              <p className="mt-1 text-xs text-brand-muted">{material.condition}</p>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onSelectMaterial(materialType)}
-                className="button-primary mt-4 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                เลือก {material.label}
-              </button>
-            </div>
-          ))}
-        </div>
       )}
 
+      <div className="krathong-progress-grid mt-5 grid grid-cols-2 gap-2 sm:gap-3">
+        {Object.entries(KRATHONG_EVENT.materials).map(([materialType, material]) => {
+          const materialProgress = progress?.[materialType];
+          const approvedCount = Number(materialProgress?.approvedCount || 0);
+          const pendingCount = Number(materialProgress?.pendingCount || 0);
+          const requiredCount = Number(materialProgress?.requiredCount || material.quantity);
+          const remainingCount = Number(
+            materialProgress?.remainingCount ?? Math.max(0, requiredCount - approvedCount),
+          );
+          const actionType =
+            materialType === 'PET' ? 'RECYCLE_PET' : 'RECYCLE_CAN';
+          const progressPercent = Math.min(100, (approvedCount / requiredCount) * 100);
+
+          return (
+            <article key={materialType} className="min-w-0 rounded-2xl border border-white bg-white p-3 sm:p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold tracking-wide text-brand-primary">
+                    {material.label}
+                  </p>
+                  <p className="mt-1 text-sm font-black text-brand-ink sm:text-base">
+                    {approvedCount.toLocaleString('th-TH')} / {requiredCount.toLocaleString('th-TH')} {material.unit}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-brand-canvas px-2 py-1 text-[10px] font-bold text-brand-positive">
+                  {materialProgress?.eligible ? 'ครบแล้ว' : `ขาด ${remainingCount}`}
+                </span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label={`ความคืบหน้า ${material.label}`}
+                aria-valuemin={0}
+                aria-valuemax={requiredCount}
+                aria-valuenow={Math.min(approvedCount, requiredCount)}
+                className="mt-3 h-2 overflow-hidden rounded-full bg-brand-soft"
+              >
+                <div
+                  className="h-full rounded-full bg-brand-primary transition-[width] duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              {pendingCount > 0 && (
+                <p className="mt-2 text-[10px] font-semibold text-amber-700">
+                  รอตรวจ {pendingCount.toLocaleString('th-TH')} รายการ
+                </p>
+              )}
+              <Link
+                to={`/submit?type=${actionType}`}
+                className="button-secondary mt-3 min-h-10 w-full justify-center !px-2 !py-2 text-[11px]"
+              >
+                สแกน{material.label} รับแต้ม
+              </Link>
+              {materialProgress?.eligible && !redemption && (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onSelectMaterial(materialType)}
+                  className="button-primary mt-2 w-full justify-center !px-2 !py-2 text-[11px] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  แลกด้วย {material.label}
+                </button>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
       <p className="mt-4 text-[11px] leading-relaxed text-brand-muted">
-        ใช้ขวด PET 10 ขวด หรือกระป๋อง 5 ใบ · ต้องล้างสะอาดและบีบแบน · หนึ่งบัญชีรับสิทธิ์ได้ครั้งเดียว
+        นับเฉพาะการสแกน PET/CAN ที่ได้รับอนุมัติ รายการรอตรวจจะแสดงแยกและยังไม่รวมยอดแลก · วัสดุจริงต้องล้างสะอาดและบีบแบน · หนึ่งบัญชีรับสิทธิ์ได้ครั้งเดียว
       </p>
     </article>
   );

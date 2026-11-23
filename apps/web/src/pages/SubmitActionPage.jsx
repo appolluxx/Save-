@@ -164,7 +164,7 @@ export function SubmitActionPage() {
             </div>
             <span className="step-index">01</span>
           </div>
-          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <div className="activity-choice-grid mt-5 grid grid-cols-2 gap-2">
             {Object.values(ACTION_TYPES).map((actionType) => {
               const item = ACTION_METADATA[actionType];
               const active = type === actionType;
@@ -366,8 +366,17 @@ function ResultNotice({ result, onClose }) {
           สถานะ: {action.status} · {Number(action.pointsAwarded || 0).toLocaleString('th-TH')} แต้ม
         </p>
         {action.rejectReason && <p className="mt-1 text-xs">เหตุผล: {action.rejectReason}</p>}
+        {action.status === 'PENDING' &&
+          [ACTION_TYPES.RECYCLE_PET, ACTION_TYPES.RECYCLE_CAN].includes(action.type) && (
+            <p className="mt-2 rounded-xl bg-white/80 p-2 text-[11px] leading-relaxed">
+              รายการนี้จะเพิ่มยอดแลกกระทงเมื่อได้รับอนุมัติ
+            </p>
+          )}
         <div className="mt-2 flex gap-3 text-xs font-bold underline">
           <Link to="/profile">ดูประวัติ</Link>
+          {[ACTION_TYPES.RECYCLE_PET, ACTION_TYPES.RECYCLE_CAN].includes(action.type) && (
+            <Link to="/shop">ดูยอดแลกกระทง</Link>
+          )}
           <button type="button" onClick={onClose}>
             ส่งรายการใหม่
           </button>
