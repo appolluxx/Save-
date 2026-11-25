@@ -4,6 +4,7 @@ import { ACTION_METADATA } from '@saveraks/shared/constants';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { formatGradeClassroom } from '../utils/formatGradeClassroom.js';
 import {
   AlertCircle,
   ArrowRight,
@@ -130,11 +131,7 @@ export function ProfilePage() {
               <div className="rounded-2xl bg-white/[.08] p-3">
                 <p className="text-[10px] font-bold text-white/55">ระดับชั้น / สถานะ</p>
                 <p className="mt-1 text-sm font-extrabold">
-                  {user?.gradeLevel === 'บุคคลทั่วไป'
-                    ? 'บุคคลทั่วไป'
-                    : user?.gradeLevel
-                      ? `ม.${user.gradeLevel}/${user.classroom || '—'}`
-                      : 'ไม่มีข้อมูล'}
+                  {formatGradeClassroom(user?.gradeLevel, user?.classroom) || 'ไม่มีข้อมูล'}
                 </p>
               </div>
               <div className="rounded-2xl bg-white/[.08] p-3">

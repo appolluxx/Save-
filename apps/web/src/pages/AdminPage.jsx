@@ -4,6 +4,7 @@ import { ACTION_METADATA } from '@saveraks/shared/constants';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { formatGradeClassroom } from '../utils/formatGradeClassroom.js';
 import {
   AlertCircle,
   Check,
@@ -242,7 +243,7 @@ export function AdminPage() {
                         <p className="mt-1 text-[11px] text-brand-muted">
                           {item.user?.studentId || 'ไม่มีรหัสนักเรียน'}
                           {item.user?.gradeLevel
-                            ? ` · ม.${item.user.gradeLevel}/${item.user.classroom || '—'}`
+                            ? ` · ${formatGradeClassroom(item.user.gradeLevel, item.user.classroom)}`
                             : ''}{' '}
                           · {formatDate(item.createdAt)}
                         </p>
@@ -534,7 +535,9 @@ function UserCard({ person, isAdmin, onChanged, setError, setNotice }) {
           <p className="truncate text-xs font-extrabold">{person.displayName}</p>
           <p className="mt-1 text-[10px] text-brand-muted">
             {person.studentId || person.email || 'ไม่มีรหัส'} ·{' '}
-            {person.gradeLevel ? `ม.${person.gradeLevel}/${person.classroom || '—'}` : person.role}
+            {person.gradeLevel
+              ? formatGradeClassroom(person.gradeLevel, person.classroom)
+              : person.role}
           </p>
         </div>
         <span

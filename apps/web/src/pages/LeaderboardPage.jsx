@@ -4,6 +4,7 @@ import { AlertCircle, Crown, LoaderCircle, Trophy, Users } from 'lucide-react';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { formatGradeClassroom } from '../utils/formatGradeClassroom.js';
 
 export function LeaderboardPage() {
   const { user } = useAuth();
@@ -258,8 +259,5 @@ function initial(name) {
   return [...(name || '?')][0];
 }
 function room(student) {
-  if (student.gradeLevel === 'บุคคลทั่วไป') return 'บุคคลทั่วไป';
-  return student.gradeLevel
-    ? `ม.${student.gradeLevel}/${student.classroom || '—'}`
-    : 'ไม่ระบุชั้นเรียน';
+  return formatGradeClassroom(student.gradeLevel, student.classroom) || 'ไม่ระบุชั้นเรียน';
 }

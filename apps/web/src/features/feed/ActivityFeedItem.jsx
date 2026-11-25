@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatGradeClassroom } from '../../utils/formatGradeClassroom.js';
 import {
   Bike,
   BusFront,
@@ -131,12 +132,11 @@ export function ActivityFeedItem({ action }) {
   const displayName = action.user?.displayName || 'สมาชิกโรงเรียน';
   const initials = Array.from(displayName.trim()).slice(0, 1).join('') || 'ส';
   const imageUrl = action.thumbnailUrl || action.imageUrl;
-  const gradeLevel = String(action.user?.gradeLevel || '');
   const className =
     action.user?.gradeLevel === 'บุคคลทั่วไป'
       ? 'บุคคลทั่วไป'
       : action.user?.gradeLevel && action.user?.classroom
-        ? `${gradeLevel.startsWith('ม.') ? gradeLevel : `ม.${gradeLevel}`}/${action.user.classroom}`
+        ? formatGradeClassroom(action.user.gradeLevel, action.user.classroom)
         : 'ชุมชนโรงเรียน';
 
   return (
