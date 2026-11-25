@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState('');
+  const [authSuccessCount, setAuthSuccessCount] = useState(0);
 
   const refreshUser = async () => {
     try {
@@ -34,6 +35,7 @@ export function AuthProvider({ children }) {
     }
     setConnectionError('');
     setUser(response.data.user);
+    setAuthSuccessCount((count) => count + 1);
     return response.data.user;
   };
 
@@ -67,6 +69,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         connectionError,
+        authSuccessCount,
         isAuthenticated: Boolean(user),
         isStaffOrAdmin,
         login,

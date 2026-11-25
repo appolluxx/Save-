@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Camera,
@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { BottomNav } from './BottomNav.jsx';
 import { BrandLogo } from './BrandLogo.jsx';
 import { Navbar } from './Navbar.jsx';
+import { QuizInviteModal } from './QuizInviteModal.jsx';
 
 const STUDENT_LINKS = [
   { to: '/', label: 'ภาพรวม', icon: Home, end: true },
@@ -26,9 +27,39 @@ const STUDENT_LINKS = [
 ];
 
 export function Layout() {
-  const { user, isStaffOrAdmin, logout, connectionError, refreshUser } = useAuth();
+  const {
+    user,
+    authSuccessCount,
+    isStaffOrAdmin,
+    logout,
+    connectionError,
+    refreshUser,
+  } = useAuth();
   const navigate = useNavigate();
   const [logoutError, setLogoutError] = useState('');
+  const [isQuizInviteOpen, setIsQuizInviteOpen] = useState(false);
+  const userIdentity = user?.id || user?.studentId || user?.email;
+  const quizInviteDismissalKey = userIdentity
+    ? `saveraks.quiz-invite.dismissed.${userIdentity}`
+    : '';
+
+  useEffect(() => {
+    if (!authSuccessCount || !quizInviteDismissalKey) return;
+    try {
+      setIsQuizInviteOpen(localStorage.getItem(quizInviteDismissalKey) !== 'true');
+    } catch {
+      setIsQuizInviteOpen(true);
+    }
+  }, [authSuccessCount, quizInviteDismissalKey]);
+
+  function dismissQuizInvite() {
+    try {
+      if (quizInviteDismissalKey) localStorage.setItem(quizInviteDismissalKey, 'true');
+    } catch {
+      // The popup can still be dismissed when browser storage is unavailable.
+    }
+    setIsQuizInviteOpen(false);
+  }
   const links = isStaffOrAdmin
     ? [
         ...STUDENT_LINKS.filter(({ to }) => to !== '/submit'),
@@ -141,6 +172,12 @@ export function Layout() {
         </main>
       </div>
       <BottomNav />
+      {isQuizInviteOpen && (
+        <QuizInviteModal
+          onClose={() => setIsQuizInviteOpen(false)}
+          onDismiss={dismissQuizInvite}
+        />
+      )}
     </div>
   );
 }
