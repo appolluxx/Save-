@@ -327,6 +327,16 @@ export async function submitAction(req, res, next) {
   }
 }
 
+function maskPublicDisplayName(displayName) {
+  const normalizedName = String(displayName || '').trim();
+  if (!normalizedName) return 'สมาชิก';
+
+  const segmenter = new Intl.Segmenter('th', { granularity: 'grapheme' });
+  const characters = Array.from(segmenter.segment(normalizedName), (part) => part.segment);
+  const visibleCharacterCount = characters.length > 1 ? 2 : 1;
+  return `${characters.slice(0, visibleCharacterCount).join('')}xxxxx`;
+}
+
 /**
  * Public feed of approved actions with privacy sanitization.
  * GET /api/actions
@@ -398,7 +408,7 @@ export async function getFeed(req, res, next) {
           createdAt: a.createdAt,
           user: {
             id: a.user.id,
-            displayName: a.user.displayName,
+            displayName: maskPublicDisplayName(a.user.displayName),
             avatarUrl: a.user.avatarUrl,
             userGroup: a.user.userGroup,
             gradeLevel: a.user.studentMaster?.gradeLevel || null,
