@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   ClipboardCheck,
+  Download,
   FileText,
   LoaderCircle,
   Search,
@@ -412,13 +413,25 @@ export function AdminPage() {
               <p className="eyebrow">SYSTEM REPORTS</p>
               <h2 className="section-title">ภาพรวมข้อมูลจริง</h2>
             </div>
-            <button
-              onClick={() => load('reports')}
-              className="button-secondary !px-3 !py-2 text-[11px]"
-              disabled={loading}
-            >
-              รีเฟรช
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {report && (
+                <button
+                  type="button"
+                  onClick={() => downloadReportCsv(report)}
+                  className="button-secondary !px-3 !py-2 text-[11px]"
+                >
+                  <Download aria-hidden="true" className="h-4 w-4" />
+                  ส่งออก CSV
+                </button>
+              )}
+              <button
+                onClick={() => load('reports')}
+                className="button-secondary !px-3 !py-2 text-[11px]"
+                disabled={loading}
+              >
+                รีเฟรช
+              </button>
+            </div>
           </div>
           {loading ? (
             <Loading text="กำลังโหลดรายงาน…" />
@@ -461,6 +474,49 @@ export function AdminPage() {
       )}
     </div>
   );
+}
+
+function downloadReportCsv(report) {
+  const generatedAt = new Date();
+  const dateStamp = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(generatedAt);
+  const rows = [
+    ['รายงานภาพรวมระบบ SaveRaks'],
+    ['จัดทำเมื่อ', generatedAt.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })],
+    [],
+    ['ตัวชี้วัด', 'ค่า', 'หน่วย'],
+    ['นักเรียนที่ active', report.activeStudents ?? 0, 'คน'],
+    ['แต้มในระบบ', report.totalPointsInCirculation ?? 0, 'แต้ม'],
+    ['ลดคาร์บอน', report.totalCo2SavedKg ?? 0, 'กก. CO₂e'],
+    ['คูปองรับแล้ว', report.totalRewardsClaimed ?? 0, 'รายการ'],
+    [],
+    ['ภารกิจ', 'สถานะ', 'จำนวนรายการ'],
+    ...(Array.isArray(report.actionBreakdown)
+      ? report.actionBreakdown.map((row) => [
+          ACTION_METADATA[row.type]?.nameThai || row.type,
+          statusLabel(row.status),
+          row.count,
+        ])
+      : []),
+  ];
+  const csv = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `saveraks-report-${dateStamp}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function escapeCsvCell(value) {
+  return `"${String(value ?? '').replaceAll('"', '""')}"`;
 }
 
 function Loading({ text }) {
