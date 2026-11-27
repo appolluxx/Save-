@@ -5,6 +5,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { formatGradeClassroom } from '../utils/formatGradeClassroom.js';
+import { userGroupLabel } from '../utils/userGroup.js';
 import {
   AlertCircle,
   Check,
@@ -21,7 +22,7 @@ import {
 
 const tabs = [
   { id: 'evidence', label: 'ตรวจหลักฐาน', icon: ClipboardCheck },
-  { id: 'users', label: 'นักเรียน', icon: Users },
+  { id: 'users', label: 'ผู้ใช้', icon: Users },
   { id: 'vouchers', label: 'ตรวจคูปอง', icon: Ticket },
   { id: 'reports', label: 'รายงาน', icon: FileText },
 ];
@@ -40,11 +41,13 @@ export function AdminPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [reviewNotes, setReviewNotes] = useState({});
+  const [reviewClassifications, setReviewClassifications] = useState({});
   const [reviewingId, setReviewingId] = useState(null);
   const [voucher, setVoucher] = useState('');
   const [voucherBusy, setVoucherBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
+  const [userGroupFilter, setUserGroupFilter] = useState('');
 
   const load = useCallback(
     async (section = tab) => {
@@ -55,7 +58,10 @@ export function AdminPage() {
           const response = await api.get('/api/admin/evidence');
           setEvidence(Array.isArray(response.data) ? response.data : []);
         } else if (section === 'users') {
-          const suffix = query.trim() ? `?search=${encodeURIComponent(query.trim())}` : '';
+          const params = new URLSearchParams();
+          if (query.trim()) params.set('search', query.trim());
+          if (userGroupFilter) params.set('group', userGroupFilter);
+          const suffix = params.size ? `?${params.toString()}` : '';
           const response = await api.get(`/api/admin/users${suffix}`);
           setUsers(Array.isArray(response.data?.users) ? response.data.users : []);
         } else if (section === 'reports') {
@@ -68,7 +74,7 @@ export function AdminPage() {
         setLoading(false);
       }
     },
-    [tab, query],
+    [tab, query, userGroupFilter],
   );
 
   useEffect(() => {
@@ -79,8 +85,13 @@ export function AdminPage() {
     setError('');
     setNotice('');
     const rejectReason = reviewNotes[id]?.trim();
+    const classification = reviewClassifications[id];
     if (status === 'REJECTED' && (!rejectReason || rejectReason.length < 3)) {
       setError('กรุณากรอกเหตุผลการปฏิเสธอย่างน้อย 3 ตัวอักษร');
+      return;
+    }
+    if (status === 'APPROVED' && evidence.find((item) => item.id === id)?.type === 'MANUAL_REVIEW' && !classification) {
+      setError('กรุณาเลือกประเภทกิจกรรมก่อนอนุมัติรายการที่ AI จำแนกไม่ได้');
       return;
     }
     setReviewingId(id);
@@ -88,6 +99,7 @@ export function AdminPage() {
       const response = await api.patch(`/api/admin/evidence/${id}`, {
         status,
         ...(status === 'REJECTED' ? { rejectReason } : {}),
+        ...(classification ? { classification } : {}),
       });
       if (!response.success) throw new Error('ระบบไม่ได้ยืนยันผลตรวจหลักฐาน');
       setNotice(
@@ -96,6 +108,11 @@ export function AdminPage() {
           : 'ปฏิเสธหลักฐานและบันทึกเหตุผลแล้ว',
       );
       setReviewNotes((previous) => {
+        const next = { ...previous };
+        delete next[id];
+        return next;
+      });
+      setReviewClassifications((previous) => {
         const next = { ...previous };
         delete next[id];
         return next;
@@ -212,7 +229,7 @@ export function AdminPage() {
             <Empty
               icon={ClipboardCheck}
               title="ไม่มีหลักฐานค้างตรวจ"
-              text="รายการใหม่จะแสดงหลังนักเรียนส่งหลักฐานและระบบจัดคิวให้ตรวจ"
+              text="รายการใหม่จะแสดงหลังสมาชิกส่งหลักฐานและระบบจัดคิวให้ตรวจ"
             />
           ) : (
             <div className="grid gap-4 xl:grid-cols-2">
@@ -242,10 +259,9 @@ export function AdminPage() {
                           {item.user?.displayName || 'ไม่ทราบชื่อ'}
                         </p>
                         <p className="mt-1 text-[11px] text-brand-muted">
-                          {item.user?.studentId || 'ไม่มีรหัสนักเรียน'}
-                          {item.user?.gradeLevel
-                            ? ` · ${formatGradeClassroom(item.user.gradeLevel, item.user.classroom)}`
-                            : ''}{' '}
+                          {item.user?.userGroup === 'STUDENT'
+                            ? `${item.user?.studentId || 'ไม่มีรหัสนักเรียน'} · ${formatGradeClassroom(item.user?.gradeLevel, item.user?.classroom) || 'ไม่มีข้อมูลชั้นเรียน'}`
+                            : userGroupLabel(item.user?.userGroup)}{' '}
                           · {formatDate(item.createdAt)}
                         </p>
                       </div>
@@ -254,12 +270,36 @@ export function AdminPage() {
                       </span>
                     </div>
                     <h3 className="mt-4 text-sm font-black text-brand-ink">
-                      {ACTION_METADATA[item.type]?.nameThai || item.type}
+                      {item.type === 'MANUAL_REVIEW'
+                        ? 'AI จำแนกไม่ได้ · ต้องเลือกประเภทกิจกรรม'
+                        : ACTION_METADATA[item.type]?.nameThai || item.type}
                     </h3>
                     {item.aiSummaryThai && (
                       <p className="mt-2 rounded-xl bg-brand-canvas p-3 text-xs leading-relaxed text-brand-body">
                         AI: {item.aiSummaryThai}
                       </p>
+                    )}
+                    {item.type === 'MANUAL_REVIEW' && (
+                      <label className="mt-4 block text-[11px] font-bold text-brand-body">
+                        ประเภทกิจกรรม (จำเป็นก่อนอนุมัติ)
+                        <select
+                          value={reviewClassifications[item.id] || ''}
+                          onChange={(event) =>
+                            setReviewClassifications((previous) => ({
+                              ...previous,
+                              [item.id]: event.target.value,
+                            }))
+                          }
+                          className="form-control mt-1"
+                        >
+                          <option value="">เลือกประเภทกิจกรรม</option>
+                          {Object.values(ACTION_METADATA).map((action) => (
+                            <option key={action.id} value={action.id}>
+                              {action.nameThai}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     )}
                     <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
                       {item.aiConfidence != null && (
@@ -298,7 +338,10 @@ export function AdminPage() {
                     <div className="mt-3 flex gap-2">
                       <button
                         type="button"
-                        disabled={reviewingId !== null}
+                        disabled={
+                          reviewingId !== null ||
+                          (item.type === 'MANUAL_REVIEW' && !reviewClassifications[item.id])
+                        }
                         onClick={() => review(item.id, 'APPROVED')}
                         className="button-primary flex-1 justify-center !py-2.5 disabled:cursor-wait disabled:opacity-60"
                       >
@@ -334,8 +377,20 @@ export function AdminPage() {
                 event.preventDefault();
                 setQuery(search);
               }}
-              className="flex w-full gap-2 sm:w-auto"
+              className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"
             >
+              <select
+                aria-label="กรองประเภทบัญชี"
+                value={userGroupFilter}
+                onChange={(event) => setUserGroupFilter(event.target.value)}
+                className="form-control !min-w-0 !py-2 sm:w-44"
+              >
+                <option value="">ทุกประเภท</option>
+                <option value="STUDENT">นักเรียน</option>
+                <option value="TEACHER">ครู / บุคลากร</option>
+                <option value="EXTERNAL">บุคคลภายนอก</option>
+                <option value="ADMIN">ผู้ดูแลระบบ</option>
+              </select>
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -356,7 +411,7 @@ export function AdminPage() {
           {loading ? (
             <Loading text="กำลังโหลดบัญชี…" />
           ) : users.length === 0 ? (
-            <Empty icon={Users} title="ไม่พบบัญชีผู้ใช้" text="ลองค้นหาด้วยชื่อหรือรหัสนักเรียน" />
+            <Empty icon={Users} title="ไม่พบบัญชีผู้ใช้" text="ลองค้นหาด้วยชื่อ อีเมล หรือรหัสนักเรียน" />
           ) : (
             <div className="mt-4 space-y-2">
               {users.map((person) => (
@@ -437,8 +492,10 @@ export function AdminPage() {
             <Loading text="กำลังโหลดรายงาน…" />
           ) : report ? (
             <>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Metric label="นักเรียนที่ active" value={report.activeStudents} unit="คน" />
+                <Metric label="ครู / บุคลากรที่ active" value={report.activeTeachers} unit="คน" />
+                <Metric label="บุคคลภายนอกที่ active" value={report.activeExternalUsers} unit="คน" />
                 <Metric label="แต้มในระบบ" value={report.totalPointsInCirculation} unit="แต้ม" />
                 <Metric label="ลดคาร์บอน" value={report.totalCo2SavedKg} unit="กก. CO₂e" />
                 <Metric label="คูปองรับแล้ว" value={report.totalRewardsClaimed} unit="รายการ" />
@@ -452,7 +509,7 @@ export function AdminPage() {
                       className={`flex flex-wrap items-center justify-between gap-2 bg-white px-4 py-3 text-xs ${index ? 'border-t border-brand-soft' : ''}`}
                     >
                       <span className="font-bold">
-                        {ACTION_METADATA[row.type]?.nameThai || row.type}
+                        {actionLabel(row.type)}
                       </span>
                       <span className="rounded-full bg-brand-canvas px-2 py-1 font-extrabold text-brand-positive">
                         {statusLabel(row.status)}
@@ -490,6 +547,8 @@ function downloadReportCsv(report) {
     [],
     ['ตัวชี้วัด', 'ค่า', 'หน่วย'],
     ['นักเรียนที่ active', report.activeStudents ?? 0, 'คน'],
+    ['ครู / บุคลากรที่ active', report.activeTeachers ?? 0, 'คน'],
+    ['บุคคลภายนอกที่ active', report.activeExternalUsers ?? 0, 'คน'],
     ['แต้มในระบบ', report.totalPointsInCirculation ?? 0, 'แต้ม'],
     ['ลดคาร์บอน', report.totalCo2SavedKg ?? 0, 'กก. CO₂e'],
     ['คูปองรับแล้ว', report.totalRewardsClaimed ?? 0, 'รายการ'],
@@ -497,7 +556,7 @@ function downloadReportCsv(report) {
     ['ภารกิจ', 'สถานะ', 'จำนวนรายการ'],
     ...(Array.isArray(report.actionBreakdown)
       ? report.actionBreakdown.map((row) => [
-          ACTION_METADATA[row.type]?.nameThai || row.type,
+          actionLabel(row.type),
           statusLabel(row.status),
           row.count,
         ])
@@ -549,6 +608,11 @@ function Metric({ label, value, unit }) {
 function statusLabel(status) {
   return { APPROVED: 'อนุมัติแล้ว', PENDING: 'รอตรวจ', REJECTED: 'ปฏิเสธ' }[status] || status;
 }
+function actionLabel(type) {
+  return type === 'MANUAL_REVIEW'
+    ? 'AI จำแนกไม่ได้ · รอเจ้าหน้าที่ตรวจ'
+    : ACTION_METADATA[type]?.nameThai || type;
+}
 function formatDate(value) {
   return new Date(value).toLocaleString('th-TH', {
     dateStyle: 'medium',
@@ -590,10 +654,10 @@ function UserCard({ person, isAdmin, onChanged, setError, setNotice }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-extrabold">{person.displayName}</p>
           <p className="mt-1 text-[10px] text-brand-muted">
-            {person.studentId || person.email || 'ไม่มีรหัส'} ·{' '}
-            {person.gradeLevel
-              ? formatGradeClassroom(person.gradeLevel, person.classroom)
-              : person.role}
+            {userGroupLabel(person.userGroup)} · {person.studentId || person.email || 'ไม่มีรหัส'}
+            {person.userGroup === 'STUDENT' && person.gradeLevel
+              ? ` · ${formatGradeClassroom(person.gradeLevel, person.classroom)}`
+              : ''}
           </p>
         </div>
         <span

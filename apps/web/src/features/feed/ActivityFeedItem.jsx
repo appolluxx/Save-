@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatGradeClassroom } from '../../utils/formatGradeClassroom.js';
+import { userGroupLabel } from '../../utils/userGroup.js';
 import {
   Bike,
   BusFront,
@@ -133,11 +134,13 @@ export function ActivityFeedItem({ action }) {
   const initials = Array.from(displayName.trim()).slice(0, 1).join('') || 'ส';
   const imageUrl = action.thumbnailUrl || action.imageUrl;
   const className =
-    action.user?.gradeLevel === 'บุคคลทั่วไป'
-      ? 'บุคคลทั่วไป'
-      : action.user?.gradeLevel && action.user?.classroom
-        ? formatGradeClassroom(action.user.gradeLevel, action.user.classroom)
-        : 'ชุมชนโรงเรียน';
+    action.user?.userGroup && action.user.userGroup !== 'STUDENT'
+      ? userGroupLabel(action.user.userGroup)
+      : action.user?.gradeLevel === 'บุคคลทั่วไป'
+        ? 'บุคคลภายนอก'
+        : action.user?.gradeLevel && action.user?.classroom
+          ? formatGradeClassroom(action.user.gradeLevel, action.user.classroom)
+          : 'ชุมชนโรงเรียน';
 
   return (
     <article className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-3.5 px-4 py-4 sm:grid-cols-[4.75rem_minmax(0,1fr)] sm:gap-4 sm:px-5">

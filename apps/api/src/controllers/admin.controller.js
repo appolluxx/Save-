@@ -14,7 +14,11 @@ import {
   adminPointAdjustmentSchema,
 } from '@saveraks/shared/schemas';
 
-import { SERVER_ACTION_SPECIFICATION } from '@saveraks/shared/constants';
+import {
+  COMMUTE_RULES,
+  SERVER_ACTION_SPECIFICATION,
+  evaluateCommuteWindow,
+} from '@saveraks/shared/constants';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../middlewares/error.middleware.js';
 
@@ -34,6 +38,7 @@ export async function getEvidenceQueue(req, res, next) {
             id: true,
             displayName: true,
             studentId: true,
+            userGroup: true,
             studentMaster: {
               select: {
                 gradeLevel: true,
@@ -63,6 +68,7 @@ export async function getEvidenceQueue(req, res, next) {
           id: a.user.id,
           displayName: a.user.displayName,
           studentId: a.user.studentId,
+          userGroup: a.user.userGroup,
           gradeLevel: a.user.studentMaster?.gradeLevel || null,
           classroom: a.user.studentMaster?.classroom || null,
         },
@@ -80,7 +86,7 @@ export async function getEvidenceQueue(req, res, next) {
 export async function reviewEvidence(req, res, next) {
   try {
     const { id } = req.params;
-    const { status, rejectReason } = actionReviewSchema.parse(req.body);
+    const { status, rejectReason, classification } = actionReviewSchema.parse(req.body);
     const reviewerId = req.user.id;
 
     const action = await prisma.ecoAction.findUnique({
@@ -95,7 +101,35 @@ export async function reviewEvidence(req, res, next) {
       throw new AppError(400, `Action has already been reviewed (current status: ${action.status})`, 'ALREADY_REVIEWED');
     }
 
-    const actionSpec = SERVER_ACTION_SPECIFICATION[action.type];
+    if (action.type === 'MANUAL_REVIEW' && status === 'APPROVED' && !classification) {
+      throw new AppError(400, 'กรุณาเลือกประเภทกิจกรรมก่อนอนุมัติ', 'ACTION_CLASSIFICATION_REQUIRED');
+    }
+    if (action.type !== 'MANUAL_REVIEW' && classification) {
+      throw new AppError(400, 'เลือกประเภทกิจกรรมได้เฉพาะรายการที่ AI จำแนกไม่ได้', 'UNEXPECTED_ACTION_CLASSIFICATION');
+    }
+
+    const resolvedActionType = action.type === 'MANUAL_REVIEW' ? classification : action.type;
+    let commuteWindowKey = action.commuteWindowKey;
+    if (resolvedActionType && COMMUTE_RULES.ELIGIBLE_ACTION_TYPES.includes(resolvedActionType)) {
+      const commuteCheck = evaluateCommuteWindow(action.createdAt);
+      if (!commuteCheck.isValid) {
+        throw new AppError(400, commuteCheck.reason, 'COMMUTE_WINDOW_VIOLATION');
+      }
+      commuteWindowKey = commuteCheck.commuteWindowKey;
+
+      const existingCommute = await prisma.ecoAction.findFirst({
+        where: {
+          userId: action.userId,
+          commuteWindowKey,
+          id: { not: action.id },
+        },
+        select: { id: true },
+      });
+      if (existingCommute) {
+        throw new AppError(409, 'สมาชิกมีรายการเดินทางในช่วงเวลานี้แล้ว', 'DUPLICATE_COMMUTE_WINDOW');
+      }
+    }
+    const actionSpec = resolvedActionType ? SERVER_ACTION_SPECIFICATION[resolvedActionType] : null;
     const pointsToAward = actionSpec ? actionSpec.points : 0;
     const co2ToAward = actionSpec ? actionSpec.co2SavedKg : 0;
 
@@ -103,6 +137,8 @@ export async function reviewEvidence(req, res, next) {
       const reviewed = await tx.ecoAction.update({
         where: { id },
         data: {
+          ...(resolvedActionType ? { type: resolvedActionType } : {}),
+          ...(commuteWindowKey ? { commuteWindowKey } : {}),
           status,
           pointsAwarded: status === 'APPROVED' ? pointsToAward : 0,
           co2SavedKg: status === 'APPROVED' ? co2ToAward : 0,
@@ -130,7 +166,7 @@ export async function reviewEvidence(req, res, next) {
             balanceAfter: updatedUser.points,
             type: 'ACTION_REWARD',
             referenceId: action.id,
-            description: `Staff approved ${action.type}`,
+            description: `Staff approved ${resolvedActionType}`,
           },
         });
       }
@@ -142,7 +178,7 @@ export async function reviewEvidence(req, res, next) {
           action: 'EVIDENCE_REVIEW',
           targetType: 'EcoAction',
           targetId: action.id,
-          payload: { status, rejectReason },
+          payload: { status, rejectReason, resolvedActionType },
           ipAddress: req.ip || null,
         },
       });
@@ -166,12 +202,13 @@ export async function reviewEvidence(req, res, next) {
  */
 export async function listUsers(req, res, next) {
   try {
-    const { search, role, page = '1', limit = '20' } = req.query;
+    const { search, role, group, page = '1', limit = '20' } = req.query;
     const take = Math.min(50, Math.max(1, parseInt(limit, 10)));
     const skip = (Math.max(1, parseInt(page, 10)) - 1) * take;
 
     const where = {};
     if (role) where.role = String(role);
+    if (group) where.userGroup = String(group);
     if (search) {
       where.OR = [
         { displayName: { contains: String(search), mode: 'insensitive' } },
@@ -192,6 +229,7 @@ export async function listUsers(req, res, next) {
           displayName: true,
           email: true,
           role: true,
+          userGroup: true,
           points: true,
           totalCo2Saved: true,
           isActive: true,
@@ -352,7 +390,7 @@ export async function adjustUserPoints(req, res, next) {
  */
 export async function getReports(req, res, next) {
   try {
-    const [actionCounts, totalCo2, activeStudents, rewardCounts] = await Promise.all([
+    const [actionCounts, totalCo2, userGroupCounts, rewardCounts] = await Promise.all([
       prisma.ecoAction.groupBy({
         by: ['type', 'status'],
         _count: { id: true },
@@ -360,14 +398,25 @@ export async function getReports(req, res, next) {
       prisma.user.aggregate({
         _sum: { totalCo2Saved: true, points: true },
       }),
-      prisma.user.count({ where: { role: 'STUDENT', isActive: true } }),
+      prisma.user.groupBy({
+        by: ['userGroup'],
+        where: { isActive: true },
+        _count: { id: true },
+      }),
       prisma.redemption.count({ where: { status: 'CLAIMED' } }),
     ]);
+    const countsByGroup = Object.fromEntries(
+      userGroupCounts.map((group) => [group.userGroup, group._count.id]),
+    );
 
     res.status(200).json({
       success: true,
       data: {
-        activeStudents,
+        userGroupCounts: countsByGroup,
+        activeStudents: countsByGroup.STUDENT || 0,
+        activeTeachers: countsByGroup.TEACHER || 0,
+        activeExternalUsers: countsByGroup.EXTERNAL || 0,
+        activeAdmins: countsByGroup.ADMIN || 0,
         totalPointsInCirculation: totalCo2._sum.points || 0,
         totalCo2SavedKg: Number((totalCo2._sum.totalCo2Saved || 0).toFixed(2)),
         totalRewardsClaimed: rewardCounts,

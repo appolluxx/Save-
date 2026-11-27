@@ -15,7 +15,7 @@ export function WelcomePage() {
   return (
     <main className="welcome-shell page-enter">
       <div className="welcome-content">
-        <p className="eyebrow">โรงเรียนสุรศักดิ์มนตรี</p>
+        <p className="eyebrow">ชุมชนรักษ์สิ่งแวดล้อม</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">
           ยินดีต้อนรับเข้าสู่
         </h1>
@@ -28,7 +28,7 @@ export function WelcomePage() {
         />
 
         <p className="mx-auto max-w-sm text-sm leading-relaxed text-gray-600">
-          ร่วมบันทึกกิจกรรม ดูผลกระทบ และช่วยกันดูแลพื้นที่โรงเรียนของเรา
+          ร่วมบันทึกกิจกรรม ดูผลกระทบ และช่วยกันดูแลพื้นที่รอบตัวเรา
         </p>
         <button
           type="button"

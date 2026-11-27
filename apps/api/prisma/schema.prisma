@@ -17,7 +17,15 @@ enum Role {
   ADMIN
 }
 
+enum UserGroup {
+  STUDENT
+  TEACHER
+  EXTERNAL
+  ADMIN
+}
+
 enum ActionType {
+  MANUAL_REVIEW
   RECYCLE_PET
   RECYCLE_CAN
   RECYCLE_PAPER
@@ -97,6 +105,7 @@ model User {
   displayName   String    @map("display_name")
   avatarUrl     String?   @map("avatar_url")
   role          Role      @default(STUDENT)
+  userGroup     UserGroup @default(STUDENT) @map("user_group")
   points        Int       @default(0)
   totalCo2Saved Float     @default(0) @map("total_co2_saved")
   isActive      Boolean   @default(true) @map("is_active")
@@ -116,6 +125,7 @@ model User {
   auditActions      AuditLog[]         @relation("ActorAuditLogs")
 
   @@index([role])
+  @@index([userGroup])
   @@index([points(sort: Desc)])
   @@index([totalCo2Saved(sort: Desc)])
   @@map("users")

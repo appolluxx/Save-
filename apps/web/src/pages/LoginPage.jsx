@@ -8,9 +8,10 @@ import { BrandLogo } from '../components/BrandLogo.jsx';
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const role = searchParams.get('role') === 'staff' ? 'staff' : 'student';
+  const requestedRole = searchParams.get('role');
+  const role = ['staff', 'external'].includes(requestedRole) ? requestedRole : 'student';
   const [isRegister, setIsRegister] = useState(searchParams.get('mode') === 'register');
-  const { login, registerStudent, registerStaff, connectionError } = useAuth();
+  const { login, registerStudent, registerStaff, registerExternal, connectionError } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -51,6 +52,13 @@ export function LoginPage() {
           password: password.trim(),
         });
         navigate(user.role === 'STAFF' || user.role === 'ADMIN' ? '/admin' : '/');
+      } else if (role === 'external') {
+        const user = await registerExternal({
+          displayName: displayName.trim(),
+          email: identifier.trim(),
+          password,
+        });
+        navigate(user.role === 'STAFF' || user.role === 'ADMIN' ? '/admin' : '/');
       } else {
         const user = await registerStaff({
           email: identifier.trim(),
@@ -67,9 +75,9 @@ export function LoginPage() {
     }
   };
 
-  const title = !isRegister
-    ? `เข้าสู่ระบบ${role === 'student' ? 'นักเรียน' : 'เจ้าหน้าที่'}`
-    : `ลงทะเบียน${role === 'student' ? 'นักเรียน' : 'เจ้าหน้าที่'}`;
+  const roleLabel =
+    role === 'student' ? 'นักเรียน' : role === 'staff' ? 'ครู / เจ้าหน้าที่' : 'บุคคลภายนอก';
+  const title = `${isRegister ? 'ลงทะเบียน' : 'เข้าสู่ระบบ'}${roleLabel}`;
 
   return (
     <main className="auth-page flex min-h-screen items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
@@ -85,7 +93,7 @@ export function LoginPage() {
           <div className="mt-6 flex items-center gap-3">
             <BrandLogo className="h-12 w-12 rounded-xl object-contain" />
             <div>
-              <p className="text-xs font-semibold text-gray-500">SaveRaks · สุรศักดิ์มนตรี</p>
+              <p className="text-xs font-semibold text-gray-500">SaveRaks · ชุมชนรักษ์สิ่งแวดล้อม</p>
               <h1 className="mt-1 text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">
                 {title}
               </h1>
@@ -117,13 +125,18 @@ export function LoginPage() {
           )}
           {isRegister && (
             <Field
-              label="ชื่อและนามสกุล"
+              label={role === 'external' ? 'ชื่อที่ใช้แสดง' : 'ชื่อและนามสกุล'}
               value={displayName}
               onChange={setDisplayName}
-              placeholder="ชื่อที่ใช้ในระบบ"
+              placeholder={role === 'external' ? 'เลือกชื่อที่จะแสดงในระบบ' : 'ชื่อที่ใช้ในระบบ'}
               required
               autoComplete="name"
             />
+          )}
+          {isRegister && role === 'external' && (
+            <p className="-mt-3 text-[11px] leading-relaxed text-brand-muted">
+              ชื่อนี้จะแสดงในกระดานอันดับบุคคลภายนอก ใช้ชื่อเล่นได้
+            </p>
           )}
           <div>
             <Field
@@ -132,27 +145,38 @@ export function LoginPage() {
                   ? isRegister
                     ? 'เลขประจำตัว 5 หลัก'
                     : 'เลขประจำตัว / อีเมล'
-                  : 'อีเมลเจ้าหน้าที่'
+                  : role === 'staff'
+                    ? 'อีเมลเจ้าหน้าที่'
+                    : 'อีเมล'
               }
               value={identifier}
               onChange={setIdentifier}
               placeholder={
                 role === 'student'
                   ? isRegister
-                    ? 'เช่น 53580 หรือ 12345'
+                    ? 'เช่น 53580'
                     : 'เลขประจำตัวหรืออีเมล'
-                  : 'name@school.ac.th'
+                  : role === 'staff'
+                    ? 'name@school.ac.th'
+                    : 'name@example.com'
               }
               required
               autoComplete={role === 'student' && !isRegister ? 'username' : 'email'}
-              type={role === 'staff' ? 'email' : 'text'}
+              type={role === 'student' ? 'text' : 'email'}
               maxLength={role === 'student' && isRegister ? 5 : undefined}
               inputMode={role === 'student' && isRegister ? 'numeric' : undefined}
             />
             {isRegister && role === 'student' && (
-              <p className="mt-1.5 text-xs text-gray-500">
-                💡 สำหรับนักเรียนสุรศักดิ์มนตรี (หากไม่พบในระบบทะเบียน จะเปิดบัญชีเป็น <strong>บุคคลทั่วไป</strong> ให้อัตโนมัติ)
-              </p>
+              <div className="mt-1.5 text-xs text-gray-500">
+                <p>สำหรับนักเรียน ให้ใช้รหัสที่อยู่ในทะเบียนของโรงเรียน</p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/login?role=external&mode=register')}
+                  className="mt-1 font-bold text-brand-primary underline"
+                >
+                  สมัครในฐานะบุคคลภายนอก
+                </button>
+              </div>
             )}
           </div>
           {isRegister && role === 'student' && (

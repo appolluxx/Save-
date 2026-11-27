@@ -14,6 +14,7 @@ import {
   studentVerifySchema,
   studentRegisterSchema,
   staffRegisterSchema,
+  externalRegisterSchema,
   loginSchema,
   googleAuthSchema,
 } from '@saveraks/shared/schemas';
@@ -32,8 +33,7 @@ import {
 
 /**
  * Checks if a student ID exists in the master roster and is available for registration.
- * If the student roster is unseeded or the student ID is not found in the roster,
- * it automatically provisions registration as "บุคคลทั่วไป" (General Public).
+ * Student registration requires an existing, unregistered roster record.
  * POST /api/auth/verify-student
  */
 export async function verifyStudent(req, res, next) {
@@ -45,27 +45,7 @@ export async function verifyStudent(req, res, next) {
     });
 
     if (!master) {
-      // Check if the school roster is populated
-      const totalRosterCount = await prisma.studentsMaster.count();
-      const isRosterEmpty = totalRosterCount === 0;
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          valid: true,
-          isGeneralPublic: true,
-          isRosterEmpty,
-          studentId,
-          prefix: 'คุณ',
-          firstName: 'บุคคลทั่วไป',
-          lastName: '(ทั่วไป)',
-          gradeLevel: 'บุคคลทั่วไป',
-          classroom: 'ทั่วไป',
-          notice: isRosterEmpty
-            ? 'ยังไม่มีฐานข้อมูลทะเบียนนักเรียนในระบบ — ระบบจะลงทะเบียนบัญชีของคุณในฐานะ: บุคคลทั่วไป'
-            : 'ไม่พบรหัสนี้ในฐานข้อมูลนักเรียนโรงเรียนสุรศักดิ์มนตรี — ระบบจะเปิดใช้งานในฐานะ: บุคคลทั่วไป',
-        },
-      });
+      throw new AppError(404, 'ไม่พบรหัสนักเรียนนี้ กรุณาเลือกลงทะเบียนในฐานะบุคคลภายนอก', 'STUDENT_NOT_FOUND');
     }
 
     if (master.isRegistered) {
@@ -92,7 +72,6 @@ export async function verifyStudent(req, res, next) {
 
 /**
  * Registers a student linked to their master roster ID inside an atomic transaction.
- * If the student is not in the roster, creates a general public profile.
  * POST /api/auth/register/student
  */
 export async function registerStudent(req, res, next) {
@@ -108,19 +87,7 @@ export async function registerStudent(req, res, next) {
       });
 
       if (!master) {
-        // Auto-provision a roster record for general public
-        master = await tx.studentsMaster.create({
-          data: {
-            studentId: data.studentId,
-            prefix: 'คุณ',
-            firstName: data.displayName,
-            lastName: '(บุคคลทั่วไป)',
-            gradeLevel: 'บุคคลทั่วไป',
-            classroom: 'ทั่วไป',
-            isRegistered: true,
-            registeredAt: new Date(),
-          },
-        });
+        throw new AppError(404, 'ไม่พบรหัสนักเรียนนี้ กรุณาลงทะเบียนในฐานะบุคคลภายนอก', 'STUDENT_NOT_FOUND');
       } else if (master.isRegistered) {
         throw new AppError(409, 'รหัสนักเรียนนี้ถูกลงทะเบียนใช้งานแล้ว', 'ALREADY_REGISTERED');
       } else {
@@ -143,6 +110,7 @@ export async function registerStudent(req, res, next) {
           phone: data.phone || null,
           passwordHash,
           role: 'STUDENT',
+          userGroup: master.gradeLevel === 'บุคคลทั่วไป' ? 'EXTERNAL' : 'STUDENT',
           points: 0,
           totalCo2Saved: 0,
         },
@@ -153,6 +121,7 @@ export async function registerStudent(req, res, next) {
           email: true,
           phone: true,
           role: true,
+          userGroup: true,
           points: true,
           totalCo2Saved: true,
           createdAt: true,
@@ -178,6 +147,50 @@ export async function registerStudent(req, res, next) {
 }
 
 /**
+ * Registers an external participant without creating a student roster record.
+ * POST /api/auth/register/external
+ */
+export async function registerExternal(req, res, next) {
+  try {
+    const data = externalRegisterSchema.parse(req.body);
+    const passwordHash = await hashPassword(data.password);
+
+    const user = await prisma.user.create({
+      data: {
+        displayName: data.displayName,
+        email: data.email,
+        passwordHash,
+        role: 'STUDENT',
+        userGroup: 'EXTERNAL',
+      },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        role: true,
+        userGroup: true,
+        points: true,
+        totalCo2Saved: true,
+        createdAt: true,
+      },
+    });
+
+    const token = issueJwtToken(user);
+    setAuthCookie(res, token);
+
+    res.status(201).json({
+      success: true,
+      data: { user, token },
+    });
+  } catch (error) {
+    if (error?.code === 'P2002') {
+      return next(new AppError(409, 'อีเมลนี้มีบัญชีในระบบแล้ว กรุณาเข้าสู่ระบบ', 'EMAIL_ALREADY_REGISTERED'));
+    }
+    next(error);
+  }
+}
+
+/**
  * Registers a teacher or staff member with verified staff invite secret.
  * POST /api/auth/register/staff
  */
@@ -197,12 +210,14 @@ export async function registerStaff(req, res, next) {
         displayName: data.displayName,
         passwordHash,
         role: 'STAFF',
+        userGroup: 'TEACHER',
       },
       select: {
         id: true,
         email: true,
         displayName: true,
         role: true,
+        userGroup: true,
         createdAt: true,
       },
     });
@@ -281,6 +296,7 @@ export async function login(req, res, next) {
           email: user.email,
           phone: user.phone,
           role: user.role,
+          userGroup: user.userGroup,
           points: user.points,
           totalCo2Saved: user.totalCo2Saved,
           avatarUrl: user.avatarUrl,
@@ -339,6 +355,7 @@ export async function googleLogin(req, res, next) {
           displayName: googlePayload.displayName,
           avatarUrl: googlePayload.avatarUrl,
           role: 'STUDENT',
+          userGroup: 'EXTERNAL',
           points: 0,
           totalCo2Saved: 0,
         },
@@ -362,6 +379,7 @@ export async function googleLogin(req, res, next) {
           displayName: user.displayName,
           email: user.email,
           role: user.role,
+          userGroup: user.userGroup,
           points: user.points,
           totalCo2Saved: user.totalCo2Saved,
           avatarUrl: user.avatarUrl,
@@ -412,6 +430,7 @@ export async function getCurrentUser(req, res, next) {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        userGroup: user.userGroup,
         points: user.points,
         totalCo2Saved: user.totalCo2Saved,
         avatarUrl: user.avatarUrl,

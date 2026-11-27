@@ -151,8 +151,8 @@ export function MapPage() {
   return (
     <div className="page-stack">
       <PageHeader
-        eyebrow="CAMPUS REPORTS"
-        title="จุดรายงานในโรงเรียน"
+        eyebrow="COMMUNITY REPORTS"
+        title="จุดรายงานในพื้นที่"
         description="แสดงรายงานและพิกัดที่ผู้ใช้ส่งเข้าระบบจริง"
         action={
           <button type="button" onClick={loadPins} className="button-secondary" disabled={loading}>

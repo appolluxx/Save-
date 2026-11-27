@@ -5,6 +5,7 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { formatGradeClassroom } from '../utils/formatGradeClassroom.js';
+import { userGroupLabel } from '../utils/userGroup.js';
 import {
   AlertCircle,
   ArrowRight,
@@ -117,7 +118,7 @@ export function ProfilePage() {
               </span>
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[.18em] text-brand-soft">
-                  {user?.role || 'ACCOUNT'}
+                  {userGroupLabel(user?.userGroup)}
                 </p>
                 <h2 className="mt-1 break-words text-lg font-black">{user?.displayName || '—'}</h2>
                 <p className="mt-1 text-xs text-white/60">
@@ -129,9 +130,13 @@ export function ProfilePage() {
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <div className="rounded-2xl bg-white/[.08] p-3">
-                <p className="text-[10px] font-bold text-white/55">ระดับชั้น / สถานะ</p>
+                <p className="text-[10px] font-bold text-white/55">
+                  {user?.userGroup === 'STUDENT' ? 'ระดับชั้น / สถานะ' : 'ประเภทผู้ใช้'}
+                </p>
                 <p className="mt-1 text-sm font-extrabold">
-                  {formatGradeClassroom(user?.gradeLevel, user?.classroom) || 'ไม่มีข้อมูล'}
+                  {user?.userGroup === 'STUDENT'
+                    ? formatGradeClassroom(user?.gradeLevel, user?.classroom) || 'ไม่มีข้อมูล'
+                    : userGroupLabel(user?.userGroup)}
                 </p>
               </div>
               <div className="rounded-2xl bg-white/[.08] p-3">
@@ -274,7 +279,11 @@ function HistoryItem({ item }) {
       : status === 'PENDING'
         ? Clock3
         : XCircle;
-  const title = reward ? item.rewardTitle : ACTION_METADATA[item.type]?.nameThai || item.type;
+  const title = reward
+    ? item.rewardTitle
+    : item.type === 'MANUAL_REVIEW'
+      ? 'รอเจ้าหน้าที่จำแนกประเภทกิจกรรม'
+      : ACTION_METADATA[item.type]?.nameThai || item.type;
   const value = reward ? -Number(item.costAtPurchase || 0) : Number(item.pointsAwarded || 0);
   const stateLabel = reward
     ? status === 'CLAIMED'

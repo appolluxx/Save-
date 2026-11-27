@@ -47,7 +47,10 @@ export function FeedPage() {
   useEffect(() => {
     let active = true;
 
-    Promise.allSettled([api.get('/api/actions?limit=5'), api.get('/api/leaderboard')])
+    Promise.allSettled([
+      api.get('/api/actions?limit=5'),
+      api.get('/api/leaderboard?group=ALL'),
+    ])
       .then(([actionsResult, leaderboardResult]) => {
         if (!active) return;
 
@@ -59,9 +62,9 @@ export function FeedPage() {
         }
 
         if (leaderboardResult.status === 'fulfilled') {
-          setStats(leaderboardResult.value.data?.schoolStats || null);
+          setStats(leaderboardResult.value.data?.groupStats || null);
         } else {
-          setStatsError(leaderboardResult.reason?.message || 'โหลดสถิติโรงเรียนไม่สำเร็จ');
+          setStatsError(leaderboardResult.reason?.message || 'โหลดสถิติสมาชิกไม่สำเร็จ');
         }
       })
       .finally(() => {
@@ -86,15 +89,15 @@ export function FeedPage() {
   return (
     <div className="page-stack feed-page">
       <PageHeader
-        eyebrow="SAVE RAKS · CAMPUS ECO"
+        eyebrow="SAVE RAKS · COMMUNITY ECO"
         title="พื้นที่รักษ์โลก"
-        description="กิจกรรมและข้อมูลที่บันทึกจากชุมชนโรงเรียน"
+        description="กิจกรรมและข้อมูลที่สมาชิกช่วยกันบันทึก"
         action={pageAction}
       />
 
       <section className="dashboard-hero page-enter">
         <div className="dashboard-hero-copy">
-          <p className="dashboard-kicker">ลงมือทีละอย่าง เปลี่ยนโรงเรียนไปด้วยกัน</p>
+          <p className="dashboard-kicker">ลงมือทีละอย่าง เปลี่ยนพื้นที่รอบตัวไปด้วยกัน</p>
           <h2 className="dashboard-hero-title">
             ทุกภารกิจเล็ก ๆ
             <br className="hidden sm:block" /> สร้างผลลัพธ์ที่วัดได้
@@ -110,11 +113,11 @@ export function FeedPage() {
           </div>
         </div>
 
-        <div className="dashboard-metrics" aria-label="สถิติรวมของโรงเรียน">
+        <div className="dashboard-metrics" aria-label="สถิติรวมของสมาชิก">
           <StatMetric
             icon={Users}
-            label="นักเรียนที่ร่วม"
-            value={stats?.totalStudents}
+            label="สมาชิกที่ร่วม"
+            value={stats?.totalUsers}
             loading={loading}
           />
           <StatMetric

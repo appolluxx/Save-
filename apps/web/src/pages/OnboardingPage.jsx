@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, UsersRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BrandLogo } from '../components/BrandLogo.jsx';
 
@@ -15,7 +15,7 @@ export function OnboardingPage() {
           <h1 className="mt-8 text-center text-3xl font-black leading-tight tracking-tight text-gray-900 sm:text-4xl">
             เริ่มต้นเล็ก ๆ
             <br />
-            เพื่อโรงเรียนที่น่าอยู่
+            เพื่อสิ่งแวดล้อมที่น่าอยู่
           </h1>
           <p className="mt-3 max-w-xs text-center text-sm leading-relaxed text-gray-600">
             ทุกการกระทำเล็ก ๆ ช่วยสร้างพื้นที่ที่ดีขึ้นได้
@@ -58,28 +58,40 @@ export function OnboardingPage() {
         <p className="mt-2 text-sm text-gray-500">เพื่อเข้าสู่ระบบ SaveRaks</p>
       </div>
 
-      <div className="my-auto grid w-full gap-4 sm:grid-cols-2">
+      <div className="my-auto grid w-full gap-4 sm:grid-cols-3">
         <RoleCard
           image="/assets/figma/pixel-student-transparent.png"
           label="นักเรียน"
-          description="เข้าร่วมภารกิจและติดตามคะแนน"
+          description="เข้าร่วมกิจกรรมและสะสมคะแนน"
           onClick={() => navigate('/login?role=student')}
         />
         <RoleCard
           image="/assets/figma/pixel-teacher-transparent.png"
           label="คุณครู / เจ้าหน้าที่"
-          description="ดูแลหลักฐานและข้อมูลโรงเรียน"
+          description="ดูแลหลักฐานและช่วยตรวจข้อมูล"
           onClick={() => navigate('/login?role=staff')}
+        />
+        <RoleCard
+          icon={UsersRound}
+          label="บุคคลภายนอก"
+          description="ร่วมกิจกรรมและสะสมคะแนน (ยังแลกรางวัลไม่ได้)"
+          onClick={() => navigate('/login?role=external')}
         />
       </div>
     </main>
   );
 }
 
-function RoleCard({ image, label, description, onClick }) {
+function RoleCard({ image, icon: Icon, label, description, onClick }) {
   return (
     <button type="button" onClick={onClick} className="role-card">
-      <img src={image} alt="" aria-hidden="true" className="h-28 w-28 object-contain" />
+      {Icon ? (
+        <span className="grid h-28 w-28 place-items-center rounded-3xl bg-brand-soft text-brand-primary">
+          <Icon aria-hidden="true" className="h-12 w-12" />
+        </span>
+      ) : (
+        <img src={image} alt="" aria-hidden="true" className="h-28 w-28 object-contain" />
+      )}
       <span className="mt-3 text-base font-extrabold text-gray-900">{label}</span>
       <span className="mt-1 text-xs leading-relaxed text-gray-500">{description}</span>
     </button>

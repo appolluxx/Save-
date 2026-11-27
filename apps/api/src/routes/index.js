@@ -54,6 +54,7 @@ const authRouter = Router();
 authRouter.post('/verify-student', authController.verifyStudent);
 authRouter.post('/register/student', authController.registerStudent);
 authRouter.post('/register/staff', authController.registerStaff);
+authRouter.post('/register/external', authController.registerExternal);
 authRouter.post('/login', authController.login);
 authRouter.post('/google', authController.googleLogin);
 authRouter.get('/me', authenticate, authController.getCurrentUser);

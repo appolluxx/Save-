@@ -18,14 +18,19 @@ import { prisma } from '../config/prisma.js';
 export async function getLeaderboard(req, res, next) {
   try {
     const { gradeLevel, classroom, period } = req.query;
+    const requestedGroup = String(req.query.group || 'STUDENT').toUpperCase();
+    const allowedGroups = new Set(['STUDENT', 'TEACHER', 'EXTERNAL', 'ALL']);
+    const userGroup = allowedGroups.has(requestedGroup) ? requestedGroup : 'STUDENT';
 
     const where = {
       isActive: true,
-      role: 'STUDENT',
+      ...(userGroup === 'ALL'
+        ? { userGroup: { in: ['STUDENT', 'TEACHER', 'EXTERNAL'] } }
+        : { userGroup }),
     };
 
-    // Filter by student master grade or classroom if requested
-    if (gradeLevel || classroom) {
+    // Grade and classroom filters apply only to the student group.
+    if (userGroup === 'STUDENT' && (gradeLevel || classroom)) {
       where.studentMaster = {};
       if (gradeLevel) where.studentMaster.gradeLevel = String(gradeLevel);
       if (classroom) where.studentMaster.classroom = String(classroom);
@@ -41,6 +46,7 @@ export async function getLeaderboard(req, res, next) {
         avatarUrl: true,
         points: true,
         totalCo2Saved: true,
+        userGroup: true,
         studentMaster: {
           select: {
             gradeLevel: true,
@@ -62,9 +68,8 @@ export async function getLeaderboard(req, res, next) {
       },
     });
 
-    // Compute school-wide aggregate impact
     const aggregates = await prisma.user.aggregate({
-      where: { role: 'STUDENT', isActive: true },
+      where,
       _sum: {
         points: true,
         totalCo2Saved: true,
@@ -84,6 +89,7 @@ export async function getLeaderboard(req, res, next) {
           avatarUrl: s.avatarUrl,
           points: s.points,
           totalCo2Saved: s.totalCo2Saved,
+          userGroup: s.userGroup,
           gradeLevel: s.studentMaster?.gradeLevel || null,
           classroom: s.studentMaster?.classroom || null,
           badges: s.badges.map((b) => ({
@@ -92,11 +98,20 @@ export async function getLeaderboard(req, res, next) {
             name: b.badge.name,
           })),
         })),
-        schoolStats: {
-          totalStudents: aggregates._count.id || 0,
+        groupStats: {
+          totalUsers: aggregates._count.id || 0,
           totalPointsEarned: aggregates._sum.points || 0,
           totalCo2SavedKg: Number((aggregates._sum.totalCo2Saved || 0).toFixed(2)),
         },
+        ...(userGroup === 'STUDENT'
+          ? {
+              schoolStats: {
+                totalStudents: aggregates._count.id || 0,
+                totalPointsEarned: aggregates._sum.points || 0,
+                totalCo2SavedKg: Number((aggregates._sum.totalCo2Saved || 0).toFixed(2)),
+              },
+            }
+          : {}),
       },
     });
   } catch (error) {

@@ -213,12 +213,15 @@ function ScanResult({ result, onReset }) {
   const pending = action?.status === 'PENDING';
   const approved = action?.status === 'APPROVED';
   const rejected = action?.status === 'REJECTED';
-  const manualReview = Boolean(analysis && (!analysis.isValid || analysis.detectedCategory === 'MANUAL_REVIEW'));
+  const manualReview =
+    action?.type === 'MANUAL_REVIEW' ||
+    Boolean(analysis && (!analysis.isValid || analysis.detectedCategory === 'MANUAL_REVIEW'));
   const statusLabel = pending ? 'รอตรวจ' : approved ? 'อนุมัติแล้ว' : rejected ? 'ไม่ผ่าน' : action?.status;
   const Icon = pending ? Clock3 : rejected ? XCircle : manualReview ? AlertCircle : CheckCircle2;
   const detectedCategory = analysis?.detectedCategory || action?.type;
-  const categoryLabel =
-    ACTION_METADATA[detectedCategory]?.nameThai || AI_CATEGORY_LABELS[detectedCategory] || detectedCategory;
+  const categoryLabel = action?.type === 'MANUAL_REVIEW'
+    ? 'รอเจ้าหน้าที่จำแนกประเภทกิจกรรม'
+    : ACTION_METADATA[detectedCategory]?.nameThai || AI_CATEGORY_LABELS[detectedCategory] || detectedCategory;
   const canRecommendBin = analysis?.isValid && detectedCategory !== 'MANUAL_REVIEW';
   const binCode = canRecommendBin
     ? analysis?.recommendedBinColor || ACTION_METADATA[action?.type]?.binColor
@@ -236,7 +239,7 @@ function ScanResult({ result, onReset }) {
         <div className="min-w-0 flex-1">
           <b className="text-sm">
             {manualReview
-              ? 'AI ยังจำแนกประเภทไม่ได้'
+              ? 'รายการนี้รอเจ้าหน้าที่ตรวจ'
               : !action
               ? 'AI วิเคราะห์ภาพแล้ว'
               : pending

@@ -54,6 +54,7 @@ export async function authenticate(req, res, next) {
         email: true,
         phone: true,
         role: true,
+        userGroup: true,
         displayName: true,
         avatarUrl: true,
         points: true,

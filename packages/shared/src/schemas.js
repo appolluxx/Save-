@@ -83,6 +83,20 @@ export const staffRegisterSchema = z.strictObject({
     .min(16, 'Staff invite secret must be at least 16 characters'),
 });
 
+export const externalRegisterSchema = z.strictObject({
+  displayName: z
+    .string()
+    .trim()
+    .min(2, 'Display name must be at least 2 characters')
+    .max(100, 'Display name cannot exceed 100 characters'),
+  email: z
+    .string()
+    .trim()
+    .email('Invalid email address format')
+    .toLowerCase(),
+  password: passwordSchema,
+});
+
 export const loginSchema = z.strictObject({
   identifier: z
     .string()
@@ -212,6 +226,18 @@ export const adminPointAdjustmentSchema = z.strictObject({
 export const actionReviewSchema = z
   .strictObject({
     status: z.enum(['APPROVED', 'REJECTED']),
+    classification: z
+      .enum([
+        'RECYCLE_PET',
+        'RECYCLE_CAN',
+        'RECYCLE_PAPER',
+        'REUSE_CONTAINER',
+        'PLANT_TREE',
+        'COMMUTE_PUBLIC',
+        'COMMUTE_WALK',
+        'COMMUTE_BICYCLE',
+      ])
+      .optional(),
     rejectReason: z
       .string()
       .trim()

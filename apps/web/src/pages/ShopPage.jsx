@@ -17,6 +17,7 @@ import { PageHeader } from '../components/PageHeader.jsx';
 
 export function ShopPage() {
   const { user, refreshUser } = useAuth();
+  const isExternal = user?.userGroup === 'EXTERNAL';
   const [items, setItems] = useState([]);
   const [redemptions, setRedemptions] = useState([]);
   const [eventProgress, setEventProgress] = useState(null);
@@ -134,9 +135,9 @@ export function ShopPage() {
   return (
     <div className="page-stack">
       <PageHeader
-        eyebrow="SCHOOL MARKETPLACE"
+        eyebrow="COMMUNITY REWARDS"
         title="ร้านค้าสวัสดิการ"
-        description="รายการและคูปองที่แสดงมาจากข้อมูลร้านค้าในระบบ"
+        description="ดูรายการรางวัล คะแนน และคูปองของบัญชีคุณ"
         action={
           <div>
             <p className="text-xs font-semibold text-gray-500">แต้มคงเหลือในบัญชี</p>
@@ -204,10 +205,16 @@ export function ShopPage() {
 
       {tab === 'catalog' ? (
         <section className="page-enter">
+          {isExternal && (
+            <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-900">
+              บัญชีบุคคลภายนอกสะสมคะแนนได้ แต่ยังไม่สามารถแลกรางวัลได้
+            </p>
+          )}
           <KrathongEventCard
             redemption={krathongRedemption}
             progress={eventProgress}
             disabled={loading || redeemingEvent}
+            isExternal={isExternal}
             onSelectMaterial={setSelectedEventMaterial}
           />
 
@@ -271,11 +278,15 @@ export function ShopPage() {
                       </span>
                       <button
                         type="button"
-                        disabled={item.stock <= 0 || Number(user?.points || 0) < Number(item.cost)}
+                        disabled={isExternal || item.stock <= 0 || Number(user?.points || 0) < Number(item.cost)}
                         onClick={() => setSelectedItem(item)}
                         className="button-primary !px-3 !py-2 text-[11px] disabled:cursor-not-allowed disabled:opacity-45"
                       >
-                        {Number(user?.points || 0) < Number(item.cost) ? 'แต้มไม่พอ' : 'แลกรางวัล'}
+                        {isExternal
+                          ? 'ยังแลกรางวัลไม่ได้'
+                          : Number(user?.points || 0) < Number(item.cost)
+                            ? 'แต้มไม่พอ'
+                            : 'แลกรางวัล'}
                       </button>
                     </div>
                   </div>
@@ -490,7 +501,7 @@ export function ShopPage() {
   );
 }
 
-function KrathongEventCard({ redemption, progress, disabled, onSelectMaterial }) {
+function KrathongEventCard({ redemption, progress, disabled, isExternal, onSelectMaterial }) {
   const selectedMaterial = redemption
     ? KRATHONG_EVENT.materials[redemption.materialType]
     : null;
@@ -590,7 +601,7 @@ function KrathongEventCard({ redemption, progress, disabled, onSelectMaterial })
               >
                 ถ่ายรูปขยะให้ AI สแกน
               </Link>
-              {materialProgress?.eligible && !redemption && (
+              {materialProgress?.eligible && !redemption && !isExternal && (
                 <button
                   type="button"
                   disabled={disabled}

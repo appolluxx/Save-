@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, LogOut, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { BrandLogo } from './BrandLogo.jsx';
+import { userGroupLabel } from '../utils/userGroup.js';
 
 export function Navbar() {
-  const { user, isStaffOrAdmin, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [logoutError, setLogoutError] = useState('');
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export function Navbar() {
               <div className="border-b border-gray-100 px-3 py-2.5">
                 <p className="truncate text-sm font-bold text-gray-900">{user.displayName}</p>
                 <p className="mt-0.5 truncate text-xs text-gray-500">
-                  {isStaffOrAdmin ? 'เจ้าหน้าที่' : user.studentId || user.email || 'นักเรียน'}
+                  {userGroupLabel(user.userGroup)}
                 </p>
               </div>
               <Link to="/profile" onClick={() => setOpen(false)} className="account-menu-link">

@@ -30,6 +30,12 @@ const KRATHONG_MATERIAL_BY_ACTION_TYPE = Object.freeze(
   Object.fromEntries(Object.entries(KRATHONG_ACTION_TYPES).map(([material, type]) => [type, material])),
 );
 
+function ensureRewardEligibility(user) {
+  if (user.userGroup === 'EXTERNAL') {
+    throw new AppError(403, 'บัญชีบุคคลภายนอกสะสมคะแนนได้ แต่ยังแลกรางวัลไม่ได้', 'REDEMPTION_NOT_ALLOWED');
+  }
+}
+
 export function isKrathongMaterialEligible(materialType, approvedCount) {
   const requiredCount = KRATHONG_EVENT.materials[materialType]?.quantity;
   return Number.isFinite(Number(approvedCount)) && Number(approvedCount) >= requiredCount;
@@ -100,6 +106,7 @@ export async function listItems(req, res, next) {
  */
 export async function purchaseItem(req, res, next) {
   try {
+    ensureRewardEligibility(req.user);
     const userId = req.user.id;
     const { rewardItemId } = marketplacePurchaseSchema.parse(req.body);
 
@@ -269,6 +276,7 @@ export async function getKrathongProgress(req, res, next) {
  */
 export async function redeemKrathongEvent(req, res, next) {
   try {
+    ensureRewardEligibility(req.user);
     const userId = req.user.id;
     const { materialType } = krathongRedemptionSchema.parse(req.body);
     const redemptionWhere = {

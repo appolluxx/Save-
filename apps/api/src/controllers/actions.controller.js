@@ -166,30 +166,17 @@ export async function submitAction(req, res, next) {
     // 6. Run AI classification before creating any persisted action data.
     const aiAnalysis = await analyzeWasteImage(mainBuffer);
 
-    const actionType = aiAnalysis.isValid
+    const mappedActionType = aiAnalysis.isValid
       ? mapAiDetectedCategoryToActionType(aiAnalysis.detectedCategory)
       : null;
-
-    // A valid sorting result can still be returned without claiming points when
-    // the detected category has no supported activity type yet.
-    if (!actionType) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          action: null,
-          analysis: aiAnalysis,
-          verdict: 'SORTED_ONLY',
-          message: aiAnalysis.isValid
-            ? 'AI แนะนำการคัดแยกแล้ว แต่ประเภทนี้ยังไม่เปิดรับคะแนน จึงยังไม่บันทึกภารกิจ'
-            : 'AI ยังจำแนกภาพนี้ไม่ได้ จึงยังไม่บันทึกภารกิจหรือคะแนน',
-        },
-      });
-    }
+    // Keep unsupported or uncertain AI results in the staff review queue.
+    // They receive no points unless a reviewer assigns a supported action type.
+    const actionType = mappedActionType || 'MANUAL_REVIEW';
 
     // Client supplied activity types are ignored. Apply any type-specific
     // restrictions only after selecting the authoritative type from AI.
     let commuteWindowKey = null;
-    if (COMMUTE_RULES.ELIGIBLE_ACTION_TYPES.includes(actionType)) {
+    if (mappedActionType && COMMUTE_RULES.ELIGIBLE_ACTION_TYPES.includes(actionType)) {
       const commuteCheck = evaluateCommuteWindow(new Date());
       if (!commuteCheck.isValid) {
         throw new AppError(400, commuteCheck.reason, 'COMMUTE_WINDOW_VIOLATION');
@@ -214,7 +201,7 @@ export async function submitAction(req, res, next) {
     // 8. Run Database-Backed Anti-Cheat Evaluation
     const antiCheat = await evaluateImageAntiCheat(fingerprint, userId, prisma);
 
-    // 9. Upload to Persistent Cloud Storage only after AI maps to an activity.
+    // 9. Store evidence for both mapped and manual-review submissions.
     const storageResult = await uploadActionImages(mainBuffer, thumbBuffer, 'actions');
 
     // 10. Determine Final Approval Status & Authoritative Points
@@ -232,12 +219,20 @@ export async function submitAction(req, res, next) {
       pointsToAward = 0;
       co2ToAward = 0;
       rejectionReason = antiCheat.reason;
-    } else if (antiCheat.verdict === 'PENDING' || aiAnalysis.confidence < 0.6 || !aiAnalysis.isValid) {
+    } else if (
+      !mappedActionType ||
+      antiCheat.verdict === 'PENDING' ||
+      aiAnalysis.confidence < 0.6 ||
+      !aiAnalysis.isValid
+    ) {
       finalStatus = 'PENDING';
       pointsToAward = 0;
       co2ToAward = 0;
       rejectionReason =
         antiCheat.reason ||
+        (!mappedActionType
+          ? 'AI จำแนกประเภทไม่ได้หรือเป็นกิจกรรมที่ยังไม่รองรับ รอเจ้าหน้าที่ตรวจ'
+          : null) ||
         (!aiAnalysis.isValid
           ? 'Image was not recognized as a valid environmental activity'
           : 'Flagged for staff review due to low AI confidence');
@@ -364,6 +359,7 @@ export async function getFeed(req, res, next) {
               id: true,
               displayName: true,
               avatarUrl: true,
+              userGroup: true,
               studentMaster: {
                 select: {
                   gradeLevel: true,
@@ -404,6 +400,7 @@ export async function getFeed(req, res, next) {
             id: a.user.id,
             displayName: a.user.displayName,
             avatarUrl: a.user.avatarUrl,
+            userGroup: a.user.userGroup,
             gradeLevel: a.user.studentMaster?.gradeLevel || null,
             classroom: a.user.studentMaster?.classroom || null,
           },

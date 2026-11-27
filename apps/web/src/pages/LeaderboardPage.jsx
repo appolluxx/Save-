@@ -5,11 +5,13 @@ import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { formatGradeClassroom } from '../utils/formatGradeClassroom.js';
+import { userGroupLabel } from '../utils/userGroup.js';
 
 export function LeaderboardPage() {
   const { user } = useAuth();
   const [grade, setGrade] = useState('');
   const [classroom, setClassroom] = useState('');
+  const [group, setGroup] = useState('STUDENT');
   const [filters, setFilters] = useState({ grade: '', classroom: '' });
   const [students, setStudents] = useState([]);
   const [stats, setStats] = useState(null);
@@ -17,11 +19,13 @@ export function LeaderboardPage() {
   const [error, setError] = useState('');
   const query = useMemo(() => {
     const params = new URLSearchParams();
-    if (filters.grade.trim())
+    params.set('group', group);
+    if (group === 'STUDENT' && filters.grade.trim())
       params.set('gradeLevel', filters.grade.trim().replace(/^ม\.?\s*/, ''));
-    if (filters.classroom.trim()) params.set('classroom', filters.classroom.trim());
+    if (group === 'STUDENT' && filters.classroom.trim())
+      params.set('classroom', filters.classroom.trim());
     return params.toString();
-  }, [filters]);
+  }, [filters, group]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setFilters({ grade, classroom }), 300);
@@ -37,7 +41,7 @@ export function LeaderboardPage() {
       .then((response) => {
         if (!active) return;
         setStudents(Array.isArray(response.data?.leaderboard) ? response.data.leaderboard : []);
-        setStats(response.data?.schoolStats || null);
+        setStats(response.data?.groupStats || response.data?.schoolStats || null);
       })
       .catch((requestError) => {
         if (active) setError(requestError.message || 'โหลดอันดับไม่สำเร็จ');
@@ -51,12 +55,14 @@ export function LeaderboardPage() {
   }, [query]);
 
   const podium = students.slice(0, 3);
+  const groupTitle =
+    group === 'STUDENT' ? 'นักเรียน' : group === 'TEACHER' ? 'ครู / บุคลากร' : 'บุคคลภายนอก';
   return (
     <div className="page-stack">
       <PageHeader
-        eyebrow="SCHOOL IMPACT"
+        eyebrow="COMMUNITY IMPACT"
         title="กระดานผู้นำ"
-        description="อันดับจากคะแนนที่บันทึกในระบบ · เรียงตามคะแนนรวมปัจจุบัน"
+        description="เลือกดูอันดับแยกตามประเภทผู้ใช้ · เรียงตามคะแนนรวมปัจจุบัน"
         action={
           <Link to="/" className="button-secondary">
             <Trophy className="h-4 w-4" />
@@ -77,8 +83,8 @@ export function LeaderboardPage() {
       <section className="grid gap-3 sm:grid-cols-3 page-enter" style={{ animationDelay: '40ms' }}>
         <Summary
           icon={Users}
-          label="นักเรียนในระบบ"
-          value={stats?.totalStudents}
+          label={`${groupTitle}ในระบบ`}
+          value={stats?.totalUsers ?? stats?.totalStudents}
           suffix="คน"
           loading={loading}
         />
@@ -126,14 +132,31 @@ export function LeaderboardPage() {
         <section className="card-panel page-enter" style={{ animationDelay: '120ms' }}>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="eyebrow">STUDENT RANKING</p>
-              <h2 className="section-title">อันดับนักเรียน</h2>
+              <p className="eyebrow">USER GROUP RANKING</p>
+              <h2 className="section-title">อันดับ{groupTitle}</h2>
             </div>
             <span className="rounded-full bg-brand-soft px-3 py-1 text-[11px] font-extrabold text-brand-primary">
               สูงสุด 50 รายการ
             </span>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="เลือกประเภทผู้ใช้">
+            {[
+              ['STUDENT', 'นักเรียน'],
+              ['TEACHER', 'ครู / บุคลากร'],
+              ['EXTERNAL', 'บุคคลภายนอก'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={group === value}
+                onClick={() => setGroup(value)}
+                className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${group === value ? 'bg-brand-primary text-white' : 'border border-gray-200 bg-white text-brand-muted hover:bg-brand-canvas'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {group === 'STUDENT' && <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-[11px] font-bold text-brand-body">
               ระดับชั้น
               <input
@@ -153,11 +176,11 @@ export function LeaderboardPage() {
                 className="form-control mt-1 !py-2.5"
               />
             </label>
-          </div>
+          </div>}
           {loading ? (
             <LoadingState />
           ) : students.length === 0 ? (
-            <Empty text="ไม่พบข้อมูลนักเรียนตามตัวกรอง" />
+            <Empty text={`ไม่พบข้อมูล${groupTitle}ตามตัวกรอง`} />
           ) : (
             <div className="mt-4 overflow-hidden rounded-2xl border border-brand-soft">
               {students.map((student, index) => (
@@ -259,5 +282,8 @@ function initial(name) {
   return [...(name || '?')][0];
 }
 function room(student) {
+  if (student.userGroup && student.userGroup !== 'STUDENT')
+    return userGroupLabel(student.userGroup);
+  if (student.gradeLevel === 'บุคคลทั่วไป') return userGroupLabel('EXTERNAL');
   return formatGradeClassroom(student.gradeLevel, student.classroom) || 'ไม่ระบุชั้นเรียน';
 }

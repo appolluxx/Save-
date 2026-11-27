@@ -48,6 +48,9 @@ export function AuthProvider({ children }) {
   const registerStaff = async (data) =>
     acceptSession(await api.post('/api/auth/register/staff', data));
 
+  const registerExternal = async (data) =>
+    acceptSession(await api.post('/api/auth/register/external', data));
+
   const googleLogin = async (idToken) =>
     acceptSession(await api.post('/api/auth/google', { idToken }));
 
@@ -75,6 +78,7 @@ export function AuthProvider({ children }) {
         login,
         registerStudent,
         registerStaff,
+        registerExternal,
         googleLogin,
         logout,
         refreshUser,

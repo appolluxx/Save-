@@ -25,7 +25,7 @@ export function ProtectedRoute({ children, requireStaff = false }) {
         <ShieldAlert aria-hidden="true" className="h-7 w-7 text-red-700" />
         <h1 className="mt-3 text-lg font-extrabold text-gray-900">ไม่มีสิทธิ์เข้าถึงหน้านี้</h1>
         <p className="mt-1 max-w-sm text-sm leading-relaxed text-gray-600">
-          หน้านี้สงวนไว้สำหรับคุณครูและเจ้าหน้าที่โรงเรียนสุรศักดิ์มนตรี
+          หน้านี้สงวนไว้สำหรับครู เจ้าหน้าที่ และผู้ดูแลระบบ
         </p>
         <Link to="/" className="button-secondary mt-5">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" />

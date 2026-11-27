@@ -16,6 +16,7 @@ import { BottomNav } from './BottomNav.jsx';
 import { BrandLogo } from './BrandLogo.jsx';
 import { Navbar } from './Navbar.jsx';
 import { QuizInviteModal } from './QuizInviteModal.jsx';
+import { userGroupLabel } from '../utils/userGroup.js';
 
 const STUDENT_LINKS = [
   { to: '/', label: 'ภาพรวม', icon: Home, end: true },
@@ -91,7 +92,7 @@ export function Layout() {
               SaveRaks
             </span>
             <span className="mt-0.5 block text-[11px] font-medium text-gray-500">
-              สุรศักดิ์มนตรี
+              ชุมชนรักษ์สิ่งแวดล้อม
             </span>
           </span>
         </Link>
@@ -130,11 +131,8 @@ export function Layout() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-gray-900">{user.displayName}</p>
                   <p className="mt-0.5 truncate text-xs text-gray-500">
-                    {isStaffOrAdmin ? (
-                      'เจ้าหน้าที่'
-                    ) : (
-                      <>{Number(user.points || 0).toLocaleString('th-TH')} แต้ม</>
-                    )}
+                    {userGroupLabel(user.userGroup)}
+                    {!isStaffOrAdmin && ` · ${Number(user.points || 0).toLocaleString('th-TH')} แต้ม`}
                   </p>
                 </div>
               </div>
