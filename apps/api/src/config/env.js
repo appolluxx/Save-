@@ -35,18 +35,21 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
-// Provide auto-generated safe fallbacks for JWT and Staff secrets if omitted
-if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-  process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
-  if (process.env.NODE_ENV === 'production') {
-    console.warn('⚠️ WARNING: JWT_SECRET not set (or <32 chars). Generated random 64-char ephemeral secret for this session.');
+// Production must use stable, configured secrets. Development retains safe
+// local defaults so a fresh checkout can still run without Railway variables.
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET must be set to at least 32 characters in production.');
   }
-}
-
-if (!process.env.STAFF_INVITE_SECRET || process.env.STAFF_INVITE_SECRET.length < 16) {
-  process.env.STAFF_INVITE_SECRET = 'surasak_staff_secret_2026';
-  if (process.env.NODE_ENV === 'production') {
-    console.warn('⚠️ WARNING: STAFF_INVITE_SECRET not set (or <16 chars). Using default fallback: surasak_staff_secret_2026');
+  if (!process.env.STAFF_INVITE_SECRET || process.env.STAFF_INVITE_SECRET.length < 16) {
+    throw new Error('STAFF_INVITE_SECRET must be set to at least 16 characters in production.');
+  }
+} else {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+  }
+  if (!process.env.STAFF_INVITE_SECRET || process.env.STAFF_INVITE_SECRET.length < 16) {
+    process.env.STAFF_INVITE_SECRET = 'surasak_staff_secret_2026';
   }
 }
 
@@ -57,7 +60,7 @@ const envSchema = z.object({
   // Database Connection
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   
-  // Security & Authentication Secrets
+  // Security & Authentication Secrets (required in production)
   JWT_SECRET: z
     .string()
     .min(32, 'JWT_SECRET must be at least 32 characters long for cryptographic security')
